@@ -1,0 +1,17 @@
+__pycache__
+пример.xlsx
+template.txt
+data
+uploads.sh
+fil.py
+testreq.py
+testRedis.py
+Globals.py
+test_result_page.py
+todo.md
+test
+__pycache__/
+*.py[cod]
+*$py.class
+venv
+.idea
