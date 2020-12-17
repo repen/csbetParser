@@ -6,6 +6,6 @@
 
 ### Команды
 
-1. клонировать репо ```git clone https://github.com/repen/csbetParser```
+1. клонировать репо ```git clone https://github.com/repen/csbetParser.git```
 2. Билд контейнера ```docker build -t csbet_parser .```
 3. Запуск контейнера ```docker run --rm -d -v csbet:/usr/src/data --name csbetparser --network=mynet csbet_parser:latest```
