@@ -1,14 +1,10 @@
-#docker build -t pythoncsgo:latest .
-#docker run --privileged -v $(pwd)/parser:/usr/src/parser --name parsercsgo --network="host" -d pythoncsgo:latest
-#docker start parsercsgo && docker exec parsercsgo python3 main.py && docker stop parsercsgo
-#docker run --rm -d -v csbet:/usr/src/data --name parsercsgo --network=mynet pythoncsgo:latest
-#FROM python:3.6-slim
-#docker run --rm -d -v csbet:/usr/src/data --name parsercsgo --network=mynet pythoncsgo:latest
+#docker build -t csbet_parser:latest .
+#docker run -v betscsgo:/usr/src/data --name csparser csbet_parser:latest
 FROM python:3.6-alpine
 
 
 ENV path /usr/src
-#COPY parser ${path}
+COPY parser ${path}
 WORKDIR ${path}
 
 
@@ -19,4 +15,4 @@ RUN pip install -r requirements.txt
 ENV BASE_DIR ${path}
 
 #CMD tail -f /dev/null
-CMD ["python", "main.py"]
+CMD python main.py
