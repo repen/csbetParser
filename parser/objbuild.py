@@ -2,16 +2,17 @@ import re, pickle, time, os, requests
 from Model import Snapshot, CSGame, MStatus
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from tools import listdir_fullpath, hash_
+from tools import listdir_fullpath
 from Globals import WORK_DIR, REMOTE_API
 from tools import log as _log
 from collections import namedtuple
 
 
-log = _log("objbuild")
+log = _log("BUILD")
 
 
 PATH_OBJECT = os.path.join( WORK_DIR, "data", "objects" )
+
 class NotElementErr( Exception ):
     pass
 
@@ -227,7 +228,9 @@ def object_building():
 
     # i think what this excess =====
     objList = listdir_fullpath(PATH_OBJECT)
-    game_happened = list( filter( lambda x: PATH_OBJECT + "/" + hash_( x.m_id ) not in objList, game_happened) )
+    game_happened = list(
+        filter( lambda x: os.path.join( PATH_OBJECT,  x.m_id ) not in objList, game_happened)
+    )
     log.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
     # =====
     
@@ -274,9 +277,9 @@ def object_building():
         fixture.markets = extract_last_snapshot( winner_dict )
         # It's ok. I done.
 
-        log.debug( "Object save %s", hash_(r[1])  )
+        log.debug( "Object save %s", r[1]  )
 
-        with open("{}/{}".format(PATH_OBJECT, hash_( r[1] ) ), "wb") as f:
+        with open( os.path.join(PATH_OBJECT, r[1] ), "wb") as f:
             pickle.dump( fixture, f )
 
         log.debug( "Object done {}".format(  game.m_id )  )
@@ -295,7 +298,6 @@ def object_building():
             log.debug("Snapshot.delete")
 
     log.debug("============End func============")
-    log.debug("END")
 
 if __name__ == '__main__':
     object_building()

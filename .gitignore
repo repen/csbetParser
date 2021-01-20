@@ -4,6 +4,7 @@ template.txt
 parser/data/objects/
 parser/data/*.db
 parser/logs/*.log
+parser/doc.md
 uploads.sh
 fil.py
 testreq.py

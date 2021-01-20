@@ -4,7 +4,7 @@ from tools import log as l
 from Bot import Bot
 from bs4 import BeautifulSoup
 # from objbuild import object_building
-from multiprocessing import Process, Lock
+from multiprocessing import Process
 from Globals import REMOTE_API
 from itertools import count
 
@@ -85,15 +85,13 @@ def bot_work():
         time.sleep(60)
 
 
-def proc2(*args):
-    lock = args[0]
-    time.sleep(60 * 60 * 1)
-    while True:
-        with lock:
-            object_building()
+def proc2():
+    time.sleep(60 * 60 * 3)
+    for _ in count():
+        # object_building()
         time.sleep( 60 * 65 * 3 )
 
-def proc1(*args):
+def proc1():
     try:
         bot_work()
     except KeyboardInterrupt:
@@ -102,11 +100,10 @@ def proc1(*args):
     
 
 def main():
-    lock = Lock()
     # first_conn, second_conn = Pipe()
 
-    p1 = Process( target=proc1, args=(lock,) , daemon=True)
-    p2 = Process( target=proc2, args=(lock,), daemon=True )
+    p1 = Process( target=proc1, daemon=True)
+    p2 = Process( target=proc2, daemon=True )
     
     p1.start()
     p2.start()    
