@@ -1,18 +1,17 @@
-import re, pickle, redis, time
+import re, pickle, time, os, requests
 from Model import Snapshot, CSGame, MStatus
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from tools import listdir_fullpath, hash_
-from Globals import WORK_DIR, REDIS_HOST, REDIS_PORT
-from tools import log
+from Globals import WORK_DIR, REMOTE_API
+from tools import log as _log
 from collections import namedtuple
 
-logBuild = log("objbuild", "/logs/build-log.log")
 
-Redis = redis.StrictRedis( host=REDIS_HOST, port=REDIS_PORT, db=0 )
-print(Redis)
+log = _log("objbuild")
 
-PATH_OBJECT = WORK_DIR + "/data/objects"
+
+PATH_OBJECT = os.path.join( WORK_DIR, "data", "objects" )
 class NotElementErr( Exception ):
     pass
 
@@ -194,111 +193,109 @@ class Fixture:
         return self._name_markets
 
 
-def object_building(**kwargs):
-    logBuild.debug("Start func")
+def create_task(m_id):
+    url = REMOTE_API + "/task/{}".format(m_id)
+    log.info( "Create Task %s", url )
+    response = requests.get(url)
+    log.info( "Response: %s WAIT %d", response.text, 90 )
+    time.sleep(90)
+
+def get_result_page(m_id):
+    RES_URL = REMOTE_API + "/result/{}".format(m_id)
+    log.info("Get result page: %s", RES_URL)
+    response = requests.get(RES_URL)
+    data = response.json()
+    html = data['result']
+    log.info("Response for %s. Result: [%s]. Length [%d]", m_id, bool( html ), len(html) )
+    return data["result"]
+
+
+
+def object_building():
+    log.debug("Start. -- Build object --")
 
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
     # time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60  ) ).timestamp() )
     query05 = MStatus.select().where( MStatus.m_status == 1)
     game_happened = [ x for x in query05.namedtuples() ]
-    logBuild.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
+    log.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
 
     game_happened = list( filter(
         lambda x :  datetime.fromtimestamp( int( x.m_time ) ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
     )
-    logBuild.debug("Quantity fixtures for handling: {} ( filter time )".format(len( game_happened )))
+    log.debug("Quantity fixtures for handling: {} ( filter time )".format(len( game_happened )))
 
     # i think what this excess =====
     objList = listdir_fullpath(PATH_OBJECT)
     game_happened = list( filter( lambda x: PATH_OBJECT + "/" + hash_( x.m_id ) not in objList, game_happened) )
-    logBuild.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
+    log.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
     # =====
     
-    t_url = "https://betscsgo.cc/match/{}/"
-
     for game in game_happened:
 
         query02 = Snapshot.select().where(Snapshot.m_id == game.m_id)
         if not query02:
-            logBuild.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
+            log.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
             continue
 
-        data = { "m_id" : game.m_id, "url" : t_url.format( game.m_id )  }
-        Redis.set("get_html", pickle.dumps( data ))
-        logBuild.debug( "Request {}".format( t_url.format( game.m_id ) ) )
+        _html = get_result_page(game.m_id)
+        if not bool(_html):
+            create_task(game.m_id)
+            _html = get_result_page(game.m_id)
 
-        qn = 1500
-        while True:
-            response = Redis.get( game.m_id )
-            if response:
-                rdata = pickle.loads( response )
-                print("response done")
-                logBuild.debug( "response done {}".format( t_url.format( game.m_id ) ) )
-                break
-            if not qn:
-                logBuild.debug( "response error {}".format( t_url.format( game.m_id ) ) )
-                break
-            qn = qn - 1
-            time.sleep(0.2)
-        
-        Redis.delete( game.m_id )
-        if not qn:continue
-        
-        try:
-            winner_dict = get_winner( rdata["html"] )
-            logBuild.debug( "winner determine: {}".format( winner_dict )  )
-            print( winner_dict )
-        except ( AssertionError, NotElementErr ) as Err:
-            print("= Error", Err)
-            logBuild.debug( "winner determine: Error"  )
-            continue 
-
-        # =====
-        try:
-            query01 = CSGame.select().where( CSGame.m_id == game.m_id )
-            r = query01.tuples()[0]
+        if not bool(_html):
+            log.info("Continue: not html %s", bool(_html))
+            continue
 
 
-            params = ( *r[:3], winner_dict['t1name'], winner_dict['t2name'] )
-            fixture = Fixture( *params )
+        # try:
+        winner_dict = get_winner( _html )
+        log.debug( "winner determine: %s", str(winner_dict)[:100]  )
+        # except ( AssertionError, NotElementErr ) as Err:
+        #     log.info("= Error", Err)
+        #     log.debug( "winner determine: Error"  )
+        #     continue
 
-            logBuild.debug( "Object create {}".format( game.m_id )   )
-            
-            for snapshot in query02.namedtuples():
-                html = snapshot.m_snapshot.decode('unicode-escape')
-                markets, names = get_fields_snapshot( html, winner_dict, snapshot.m_time_snapshot )
-                fixture.name_markets = names
-                fixture.markets = markets
+        query01 = CSGame.select().where( CSGame.m_id == game.m_id )
+        r = query01.tuples()[0]
 
-            # Andrey will add last snapshot
-            fixture.markets = extract_last_snapshot( winner_dict )
-            # It's ok. I done.
-            
-            logBuild.debug( "Object build"  )
-            
-            with open("{}/{}".format(PATH_OBJECT, hash_( r[1] ) ), "wb") as f:
-                pickle.dump( fixture, f )
-            
-            logBuild.debug( "Object done {}".format(  game.m_id )  )
-            print(game.m_id, "Id")
+        params = ( *r[:3], winner_dict['t1name'], winner_dict['t2name'] )
+        fixture = Fixture( *params )
 
+        log.debug( "Object create {}".format( game.m_id )   )
+
+        for snapshot in query02.namedtuples():
+            html = snapshot.m_snapshot.decode('unicode-escape')
+            markets, names = get_fields_snapshot( html, winner_dict, snapshot.m_time_snapshot )
+            fixture.name_markets = names
+            fixture.markets = markets
+
+        # Andrey will add last snapshot
+        fixture.markets = extract_last_snapshot( winner_dict )
+        # It's ok. I done.
+
+        log.debug( "Object save %s", hash_(r[1])  )
+
+        with open("{}/{}".format(PATH_OBJECT, hash_( r[1] ) ), "wb") as f:
+            pickle.dump( fixture, f )
+
+        log.debug( "Object done {}".format(  game.m_id )  )
+        # breakpoint()
+
+        def clear_db():
+            # db zone
             # Snapshot.delete_snapshot( game.m_id )
             # MStatus.delete().where(  MStatus.m_id == game.m_id  ).execute()
             Snapshot.delete().where( Snapshot.m_id == game.m_id ).execute()
             MStatus.update({
                 "m_status" : 0,
             }).where(  MStatus.m_id == game.m_id  ).execute()
+            # ============
+            log.debug( "Snapshot deleted from database %s",  game.m_id    )
+            log.debug("Snapshot.delete")
 
-            logBuild.debug( "Snapshot deleted from database".format( game.m_id  )  )
-            print("Snapshot.delete")
-        except Exception as e:
-            print("= Error", e)
-            logBuild.error( "Error {}".format( game.m_id  ), exc_info=True  )
-            continue
-        # =====
-        print('============')
-    logBuild.debug("============End func============")
-    print("END")
+    log.debug("============End func============")
+    log.debug("END")
 
 if __name__ == '__main__':
     object_building()

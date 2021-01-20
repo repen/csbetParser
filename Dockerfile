@@ -16,7 +16,7 @@ COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
 
 
-ENV APP_PATH ${path}
+ENV BASE_DIR ${path}
 
 #CMD tail -f /dev/null
 CMD ["python", "main.py"]

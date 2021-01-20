@@ -1,6 +1,6 @@
 from datetime import datetime
 import re, json, logging, hashlib
-from Globals import WORK_DIR
+from Globals import WORK_DIR, BASE_DIR
 import os, copy, pickle
 
 
@@ -64,21 +64,22 @@ def sheduler(*args):
 
     return shedule
 
-def log(*args):
-    name_logger = args[0]
-    path_file = args[1]
+
+def log(name, filename=None):
     # создаём logger
-    logger = logging.getLogger(name_logger)
-    logger.setLevel(logging.DEBUG)
+    logger = logging.getLogger(name)
+    logger.setLevel( logging.DEBUG )
 
     # создаём консольный handler и задаём уровень
-    # ch = logging.StreamHandler()
-    ch = logging.FileHandler(WORK_DIR + path_file)
+    if filename:
+        ch = logging.FileHandler(os.path.join(  BASE_DIR, "logs" , filename ))
+    else:
+        ch = logging.StreamHandler()
 
     ch.setLevel(logging.DEBUG)
 
     # создаём formatter
-    formatter = logging.Formatter('%(asctime)s : %(name)s : %(levelname)s : %(message)s')
+    formatter = logging.Formatter('%(asctime)s : %(lineno)d : %(name)s : %(levelname)s : %(message)s')
     # %(lineno)d :
     # добавляем formatter в ch
     ch.setFormatter(formatter)

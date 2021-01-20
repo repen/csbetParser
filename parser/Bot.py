@@ -1,8 +1,8 @@
-import redis
+# import redis
 import Model
-from Globals import REDIS_HOST, REDIS_PORT
+# from Globals import REDIS_HOST, REDIS_PORT
 from datetime import datetime
-
+from tools import log as _log
 
 
 class ErrorMatchGoneUpcoming( Exception ):
@@ -27,14 +27,11 @@ class SnapshotData:
 
 class Bot:
     __slots__ = ('m_id', 'm_time', 'log' ,'COUNTER_ERROR', "Live")
-    Redis = redis.StrictRedis( host=REDIS_HOST, port=REDIS_PORT, db=0 )
-    
-    logger = None
 
     def __init__(self, m_id, m_time):
         self.m_id    = m_id
         self.m_time  = m_time
-        self.log  = Bot.logger( self.m_id, "/logs/{}.log".format(self.m_id) )
+        self.log  = _log( self.m_id, "{}.log".format(self.m_id) )
         self.COUNTER_ERROR = 0
         self.Live = False
 

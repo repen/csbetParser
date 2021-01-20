@@ -1,25 +1,18 @@
 from peewee import *
 from Globals import WORK_DIR
-import time
+import os, glob
 
-from datetime import datetime, timedelta
-db   = SqliteDatabase(WORK_DIR + '/data/database/csgo.db') # Snapshot
-db02 = SqliteDatabase(WORK_DIR + '/data/database/csgo02.db') # Fixture info
-dbHtml = SqliteDatabase(WORK_DIR + '/data/database/datahtml.db') # html
-# dbHtml = SqliteDatabase("/home/repente/SERVERS/Remote/srv1/database/datahtml.db") # html
-
+db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
 
 
 class CSGame(Model):
-    m_id     = CharField()
+    m_id     = CharField(unique=True)
     m_time   = IntegerField()
     team1    = CharField()
     team2    = CharField()
 
     class Meta:
-        database = db02
-
-
+        database = db
 
 class Snapshot( Model ):
     m_id       = CharField()
@@ -44,109 +37,32 @@ class Snapshot( Model ):
     class Meta:
         database = db
 
-
 class MStatus( Model ):
-    m_id       = CharField()
+    m_id       = CharField(unique=True)
     m_status   = IntegerField()
     m_time     = IntegerField()
 
     @staticmethod
     def insert_safe(data):
-        try:
-            MStatus.insert(data).execute()
-            result = True
-        except OperationalError:
-            result = False
+        MStatus.insert(data).execute()
+        result = True
         return result
 
     class Meta:
         database = db
 
 
+def init_db():
+    for filename in glob.glob( os.path.join(WORK_DIR, "logs", "*.log") ):
+        os.remove(filename)
 
-class HtmlData(Model):
-    m_time   = IntegerField( )
-    html     = BlobField()
+    # CSGame.drop_table()
+    # Snapshot.drop_table()
+    # MStatus.drop_table()
 
-
-    # @staticmethod
-    # def get_last_row():
-    #     cursor = dbHtml.execute_sql("SELECT * FROM HtmlData ORDER BY rowid DESC LIMIT 1;" )
-    #     data = cursor.fetchone()
-    #     id_ = data[0]
-    #     time_snap = data[1]
-    #     html = data[2]
-    #     return id_, time_snap,  html.decode('unicode-escape')
-
-    @staticmethod
-    def get_last_row():
-        query = HtmlData.select().order_by( HtmlData.id.desc() ).get()
-        last_row = HtmlData.select().where( HtmlData.id == query )
-        data = last_row.tuples()[0]
-        # print(query)
-        if last_row:
-            id_ = data[0]
-            time_snap = data[1]
-            html = data[2]
-            return id_, time_snap, html.decode('unicode-escape')
-        raise ValueError
-
-    @staticmethod
-    def iter_while_last():
-        while True:
-            try:
-                yield HtmlData.get_last_row()
-            except OperationalError:
-                time.sleep( 120 )
-
-    @staticmethod
-    def get_iter_close():
-        query = HtmlData.select()
-        for que in query.tuples():
-            id_ = que[0]
-            time_snap = que[1]
-            html = que[2]
-            yield id_, time_snap,  html.decode('unicode-escape')
-            # yield que
-
-    @staticmethod
-    def get_row(id_num):
-        query = HtmlData.select().where( HtmlData.id == id_num )
-        for que in query.tuples():
-            id_ = que[0]
-            time_snap = que[1]
-            html = que[2]
-
-        return id_, time_snap,  html.decode('unicode-escape')
-
-    @staticmethod
-    def get_count_row():
-        cursor = dbHtml.execute_sql("SELECT rowid FROM HtmlData ORDER BY rowid DESC LIMIT 1;" )
-        data = cursor.fetchone()
-        return data[0]
-
-
-
-    @staticmethod
-    def get_iter():
-        # method not work!!!
-        START = 2000
-        tasks = [ x  for x in range( START, HtmlData.get_count_row() + 1 )]
-        print(tasks)
-        for task in tasks:
-            yield HtmlData.get_row( task )
-
-            # yield task
-
-
-    class Meta:
-        database = dbHtml
-
-
-CSGame.create_table()
-Snapshot.create_table()
-HtmlData.create_table()
-MStatus.create_table()
+    CSGame.create_table()
+    Snapshot.create_table()
+    MStatus.create_table()
 
 
 def get_size():
@@ -177,6 +93,7 @@ def get_size():
 
 
 if __name__ == '__main__':
-    MStatus.update({
-        "m_status": 0,
-    }).where(MStatus.m_id == 240744).execute()
+    # query = CSGame.select()
+    query = MStatus.select()
+    breakpoint()
+    print(len(query))

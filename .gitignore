@@ -1,12 +1,13 @@
 __pycache__
 пример.xlsx
 template.txt
-data
+parser/data/objects/
+parser/data/*.db
+parser/logs/*.log
 uploads.sh
 fil.py
 testreq.py
 testRedis.py
-Globals.py
 test_result_page.py
 todo.md
 test
