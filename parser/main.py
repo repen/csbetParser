@@ -1,5 +1,5 @@
 from request import main as get_fixture
-import requests, Model, time, os
+import requests, time, os
 from tools import log as l, listdir_fullpath
 from Bot import Bot
 from bs4 import BeautifulSoup
@@ -7,8 +7,9 @@ from objbuild import object_building
 from multiprocessing import Process
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
+from Model import init_db, CSGame, Snapshot
 
-Model.init_db()
+init_db()
 log = l("Main")
 
 ids = []
@@ -29,10 +30,10 @@ def _check_new_fixture(*args):
 
     log.info(">>> before fixtures [%d]", len(BL.obj_bots))
     for fixture in fixtures:
-        query = Model.CSGame.select(  ).where( Model.CSGame.m_id == fixture['m_id'] )
+        query = CSGame.select(  ).where( CSGame.m_id == fixture['m_id'] )
         if not query:
             
-            Model.CSGame.insert({"m_id" : fixture['m_id'], "m_time" : fixture['m_time'],
+            CSGame.insert({"m_id" : fixture['m_id'], "m_time" : fixture['m_time'],
                 "team1" : fixture['t1name'], "team2" : fixture['t2name']
             }).execute()
 
@@ -53,9 +54,9 @@ def _removing_garbage():
             _objs = obj_list
             for obj in new:
                 m_id = obj.split("/")[-1]
-                query = Model.Snapshot.select().where(Model.Snapshot.m_id == m_id)
+                query = Snapshot.select().where(Snapshot.m_id == m_id)
                 if bool(query):
-                    Model.Snapshot.delete().where( Model.Snapshot.m_id == m_id ).execute()
+                    Snapshot.delete().where( Snapshot.m_id == m_id ).execute()
     return wrapper
 
 removing_garbage = _removing_garbage()
