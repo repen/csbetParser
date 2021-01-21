@@ -4,7 +4,7 @@ from tools import log as l, listdir_fullpath
 from Bot import Bot
 from bs4 import BeautifulSoup
 from objbuild import object_building
-from multiprocessing import Process
+from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
 from Model import init_db, CSGame, Snapshot
@@ -110,13 +110,14 @@ def bot_work():
         time.sleep(60)
 
 
-def proc2():
-    wait = 60 * 60 * 1
+def proc2(lock):
+    wait = 60 * 60 * 3
     log = l("Proc2")
     for _ in count():
         try:
             log.info("Build!!")
-            object_building()
+            with lock:
+                object_building()
             log.info("Wait %d sec", wait)
             time.sleep(wait)
         except Exception as e:
@@ -125,7 +126,7 @@ def proc2():
 
 
 
-def proc1():
+def proc1(lock):
     try:
         bot_work()
     except KeyboardInterrupt:
@@ -135,9 +136,10 @@ def proc1():
 
 def main():
     # first_conn, second_conn = Pipe()
+    lock = Lock()
 
-    p1 = Process( target=proc1, daemon=True)
-    p2 = Process( target=proc2, daemon=True )
+    p1 = Process( target=proc1, args=(lock,),daemon=True)
+    p2 = Process( target=proc2,args=(lock,) ,daemon=True )
     
     p1.start()
     p2.start()    
