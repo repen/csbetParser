@@ -141,7 +141,7 @@ def main():
     p2.start()    
 
     p1.join()
-    # p2.join()
+    p2.join()
     # __main()
 
 

@@ -1,5 +1,5 @@
 #docker build -t csbet_parser:latest .
-#docker run -v betscsgo:/usr/src/data --name csparser csbet_parser:latest
+#docker run --rm -d -v betscsgo:/usr/src/data --name csparser csbet_parser:latest
 FROM python:3.6-alpine
 
 
