@@ -7,7 +7,6 @@ from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
-from Model import init_db, CSGame, Snapshot
 
 init_db()
 log = l("Main")
@@ -20,6 +19,7 @@ class BL:
     id_bots    = []
 
 def _check_new_fixture(*args):
+    from Model import CSGame
     # id_, time_snapshot, html = queue.get()
     log.info("Check new fixture")
     response = requests.get(REMOTE_API+ "/html")
@@ -47,6 +47,7 @@ def _check_new_fixture(*args):
 
 
 def _bot_work():
+    from Model import Snapshot
     _objs = set()
 
     def removing_garbage():
