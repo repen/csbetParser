@@ -131,9 +131,18 @@ def proc1():
     
 def main02():
     for c in count():
-        proc1()
+
+        if c % 10 == 0:
+            _check_new_fixture()
+
+        _bot_work()
+
         if c % 10580 == 0:
-            proc2()
+            log.info("Build!!")
+            object_building()
+            log.info("Wait %d sec", wait)
+
+        log.info("-= bot work sleep 60 =-")
         time.sleep(60)
 
 def main():
