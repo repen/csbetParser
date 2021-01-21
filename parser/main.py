@@ -1,11 +1,11 @@
 from request import main as get_fixture
-import requests, Model, time
-from tools import log as l
+import requests, Model, time, os
+from tools import log as l, listdir_fullpath
 from Bot import Bot
 from bs4 import BeautifulSoup
-# from objbuild import object_building
+from objbuild import object_building
 from multiprocessing import Process
-from Globals import REMOTE_API
+from Globals import REMOTE_API, BASE_DIR
 from itertools import count
 
 Model.init_db()
@@ -43,6 +43,23 @@ def _check_new_fixture(*args):
 
     log.info("<<< after fixtures [%d]", len(BL.obj_bots))
 
+def _removing_garbage():
+    _objs = set()
+    def wrapper():
+        nonlocal _objs
+        obj_list = set(listdir_fullpath( os.path.join( BASE_DIR, "data", "objects" ) ))
+        if _objs != obj_list:
+            new = obj_list.difference(_objs)
+            _objs = obj_list
+            for obj in new:
+                m_id = obj.split("/")[-1]
+                query = Model.Snapshot.select().where(Model.Snapshot.m_id == m_id)
+                if bool(query):
+                    Model.Snapshot.delete().where( Model.Snapshot.m_id == m_id ).execute()
+    return wrapper
+
+removing_garbage = _removing_garbage()
+
 def _bot_work():
     response = requests.get(REMOTE_API+ "/html")
     data = response.json()
@@ -69,7 +86,13 @@ def _bot_work():
             continue
         temp.append( bot )
     BL.obj_bots = temp
+
+
     log.info("[ - end work bots = %d - ]", len(BL.obj_bots))
+    log.info("Start [ removing garbage ]")
+    removing_garbage()
+    log.info("Stop  [ removing garbage ]")
+
 
 
 def bot_work():
@@ -86,10 +109,19 @@ def bot_work():
 
 
 def proc2():
-    time.sleep(60 * 60 * 3)
+    wait = 60 * 60 * 1
+    log = l("Proc2")
     for _ in count():
-        # object_building()
-        time.sleep( 60 * 65 * 3 )
+        try:
+            log.info("Build!!")
+            object_building()
+            log.info("Wait %d sec", wait)
+            time.sleep(wait)
+        except Exception as e:
+            log.error("Error", exc_info=True)
+
+
+
 
 def proc1():
     try:
@@ -114,5 +146,6 @@ def main():
 
 
 if __name__ == '__main__':
-    # main()
-    proc1()
+    main()
+    # proc1()
+    # proc2()

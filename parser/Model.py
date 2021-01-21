@@ -94,6 +94,7 @@ def get_size():
 
 if __name__ == '__main__':
     # query = CSGame.select()
-    query = MStatus.select()
-    breakpoint()
+    # query = Snapshot.select().where(Snapshot.m_id == "267805")
+    query = Snapshot.select()
+    # breakpoint()
     print(len(query))

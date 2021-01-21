@@ -5,6 +5,8 @@ parser/data/objects/
 parser/data/*.db
 parser/logs/*.log
 parser/doc.md
+parser/data/csbet.tar
+parser/data/csbet.tar.gz
 uploads.sh
 fil.py
 testreq.py
