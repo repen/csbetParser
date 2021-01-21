@@ -140,7 +140,7 @@ def main02():
         if c % 10580 == 0:
             log.info("Build!!")
             object_building()
-            log.info("Wait %d sec", wait)
+            log.info("Wait %d sec", 10580)
 
         log.info("-= bot work sleep 60 =-")
         time.sleep(60)

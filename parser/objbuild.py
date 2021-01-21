@@ -198,8 +198,8 @@ def create_task(m_id):
     url = REMOTE_API + "/task/{}".format(m_id)
     log.info( "Create Task %s", url )
     response = requests.get(url)
-    log.info( "Response: %s WAIT %d", response.text, 90 )
-    time.sleep(90)
+    log.info( "Response: %s WAIT %d", response.text, 30 )
+    time.sleep(30)
 
 def get_result_page(m_id):
     RES_URL = REMOTE_API + "/result/{}".format(m_id)
