@@ -137,16 +137,16 @@ def main02():
 
         _bot_work()
 
-        if c % 3600 == 0:
+        if c % 60 == 0:
             z = 0
-            log.info("Build!!")
+            log.info("[ Start Build ]")
             try:
                 object_building()
-                log.info("Wait %d sec", 3600)
+                log.info("[ End Build ]")
             except Exception as e:
                 log.error("Error", exc_info=True)
 
-        log.info("-= bot work sleep 60 =-")
+        log.info("-= bot work sleep 60 c=%d", c)
         time.sleep(z)
 
 def main():
