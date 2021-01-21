@@ -1,4 +1,5 @@
 import re, pickle, time, os, requests
+from Model import Snapshot, CSGame, MStatus
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from tools import listdir_fullpath
@@ -212,7 +213,6 @@ def get_result_page(m_id):
 
 
 def object_building():
-    from Model import Snapshot, CSGame, MStatus
     log.debug("Start. -- Build object --")
 
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )

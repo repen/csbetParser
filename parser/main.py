@@ -7,8 +7,9 @@ from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
+from Model import init_db, CSGame, Snapshot
 
-# init_db()
+init_db()
 log = l("Main")
 
 ids = []
@@ -19,7 +20,6 @@ class BL:
     id_bots    = []
 
 def _check_new_fixture(*args):
-    from Model import CSGame
     # id_, time_snapshot, html = queue.get()
     log.info("Check new fixture")
     response = requests.get(REMOTE_API+ "/html")
@@ -47,7 +47,6 @@ def _check_new_fixture(*args):
 
 
 def _bot_work():
-    from Model import Snapshot
     _objs = set()
 
     def removing_garbage():
@@ -111,36 +110,38 @@ def bot_work():
         time.sleep(60)
 
 
-def proc2(lock):
+def proc2():
     wait = 60 * 60 * 3
     log = l("Proc2")
     for _ in count():
         try:
             log.info("Build!!")
-            with lock:
-                object_building()
+            object_building()
             log.info("Wait %d sec", wait)
             time.sleep(wait)
         except Exception as e:
             log.error("Error", exc_info=True)
 
-
-
-
-def proc1(lock):
+def proc1():
     try:
         bot_work()
     except KeyboardInterrupt:
         log.info("Pr > Ctrl + C ")
         log.error("Error", exc_info=True)
     
+def main02():
+    for c in count():
+        proc1()
+        if c % 10580 == 0:
+            proc2()
+        time.sleep(60)
 
 def main():
     # first_conn, second_conn = Pipe()
     lock = Lock()
 
-    p1 = Process( target=proc1, args=(lock,),daemon=True)
-    p2 = Process( target=proc2,args=(lock,) ,daemon=True )
+    p1 = Process( target=proc1, daemon=True)
+    p2 = Process( target=proc2, daemon=True )
     
     p1.start()
     p2.start()    
@@ -151,6 +152,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main02()
+    # main()
     # proc1()
     # proc2()
