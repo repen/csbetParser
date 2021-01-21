@@ -131,19 +131,20 @@ def proc1():
     
 def main02():
     for c in count():
-
+        z = 60
         if c % 10 == 0:
             _check_new_fixture()
 
         _bot_work()
 
-        if c % 10580 == 0:
+        if c % 3600 == 0:
             log.info("Build!!")
             object_building()
-            log.info("Wait %d sec", 10580)
+            log.info("Wait %d sec", 3600)
+            z = 0
 
         log.info("-= bot work sleep 60 =-")
-        time.sleep(60)
+        time.sleep(z)
 
 def main():
     # first_conn, second_conn = Pipe()
