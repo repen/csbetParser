@@ -44,11 +44,14 @@ def _check_new_fixture(*args):
 
     log.info("<<< after fixtures [%d]", len(BL.obj_bots))
 
-def _removing_garbage():
+
+
+def _bot_work():
     _objs = set()
-    def wrapper():
+
+    def removing_garbage():
         nonlocal _objs
-        obj_list = set(listdir_fullpath( os.path.join( BASE_DIR, "data", "objects" ) ))
+        obj_list = set(listdir_fullpath(os.path.join(BASE_DIR, "data", "objects")))
         if _objs != obj_list:
             new = obj_list.difference(_objs)
             _objs = obj_list
@@ -56,12 +59,10 @@ def _removing_garbage():
                 m_id = obj.split("/")[-1]
                 query = Snapshot.select().where(Snapshot.m_id == m_id)
                 if bool(query):
-                    Snapshot.delete().where( Snapshot.m_id == m_id ).execute()
-    return wrapper
+                    Snapshot.delete().where(Snapshot.m_id == m_id).execute()
 
-removing_garbage = _removing_garbage()
 
-def _bot_work():
+
     response = requests.get(REMOTE_API+ "/html")
     data = response.json()
     time_snapshot = data['snapshot_time']
