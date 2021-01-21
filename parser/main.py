@@ -8,7 +8,7 @@ from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
 
-init_db()
+# init_db()
 log = l("Main")
 
 ids = []
