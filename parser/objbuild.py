@@ -144,10 +144,13 @@ def get_fields_snapshot(html, winner, t_snapshot):
         name_market = market.select_one(".bet-event__text-inside-part").text.strip()
         left = market.select_one(".bet-currency.bet-currency_RUB.sys-stat-abs-1").text
         right = market.select_one(".bet-currency.bet-currency_RUB.sys-stat-abs-2").text
-
-        param = ( 
-            name_market, hand_num( left ) , hand_num( right ), winner[ name_market ], t_snapshot,
-        )
+        try:
+            param = (
+                name_market, hand_num( left ) , hand_num( right ), winner[ name_market ], t_snapshot,
+            )
+        except KeyError as e:
+            log.error("Error %s", str(e), exc_info=True)
+            continue
 
         names.append( name_market )
         # M.append( Market( *param ) )
