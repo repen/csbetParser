@@ -1,7 +1,7 @@
 from peewee import *
 from Globals import WORK_DIR
 import os, glob, json, zlib
-from collections import namedtuple
+from tools import log as _log
 
 from ZODB import FileStorage, DB
 from BTrees.OOBTree import OOBTree
@@ -14,7 +14,7 @@ connection = zopedb.open()
 root = connection.root()
 
 db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
-
+log = _log("Model")
 
 class ITSnapshot(Persistent):
     def __init__(self):
@@ -30,7 +30,7 @@ class ITSnapshot(Persistent):
         list_snapshot.add( zlib.compress(str_data)  )
         # list_snapshot.add( str_data  )
 
-        print("ID", data["m_id"], " len snapshot: ", len( list_snapshot ) )
+        log.info("ID %s len snapshot: %d", data["m_id"] , len( list_snapshot ) )
         self.container._p_changed = 1
         # self._p_changed = 1
 

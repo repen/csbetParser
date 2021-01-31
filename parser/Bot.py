@@ -71,7 +71,7 @@ class Bot:
 
         self.log.debug( "Data write on database Snapshot" )
         
-        result = Snapshot.insert_safe( data.to_dict() )
+        # result = Snapshot.insert_safe( data.to_dict() )
         TSnapshot.insert( data.to_dict() )
 
         self.log.debug( "Data write successfully {}".format( str(result) ) )
