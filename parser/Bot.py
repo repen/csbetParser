@@ -1,8 +1,9 @@
 # import redis
-import Model
+from Model import MStatus, Snapshot, TSnapshot
 # from Globals import REDIS_HOST, REDIS_PORT
 from datetime import datetime
 from tools import log as _log
+
 
 
 class ErrorMatchGoneUpcoming( Exception ):
@@ -54,7 +55,7 @@ class Bot:
             self.log.debug("Data extract_fixture len: {}".format( len( fixture ) ) )
 
         if match_get_live:
-            result = Model.MStatus.insert_safe({
+            result = MStatus.insert_safe({
                  "m_id" : self.m_id,
                  "m_status" : 1,
                  "m_time" : datetime.now().timestamp(),
@@ -70,8 +71,8 @@ class Bot:
 
         self.log.debug( "Data write on database Snapshot" )
         
-        # Model.Snapshot.insert( data.to_dict() ).execute()
-        result = Model.Snapshot.insert_safe( data.to_dict() )
+        result = Snapshot.insert_safe( data.to_dict() )
+        TSnapshot.insert( data.to_dict() )
 
         self.log.debug( "Data write successfully {}".format( str(result) ) )
 

@@ -1,8 +1,60 @@
 from peewee import *
 from Globals import WORK_DIR
-import os, glob
+import os, glob, json, zlib
+from collections import namedtuple
+
+from ZODB import FileStorage, DB
+from BTrees.OOBTree import OOBTree
+from persistent import Persistent, list, dict
+# blob_dir = os.path.join( WORK_DIR,  "data", "fl")
+storage = FileStorage.FileStorage( os.path.join( WORK_DIR,  "data", "mydatabase.fs"), pack_keep_old=False )
+zopedb = DB(storage, large_record_size=1000000000000)
+connection = zopedb.open()
+
+root = connection.root()
 
 db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
+
+
+class ITSnapshot(Persistent):
+    def __init__(self):
+        self.container = OOBTree()
+
+
+    def insert(self, data):
+        list_snapshot = self.container.setdefault(data["m_id"], set())
+
+        str_data = json.dumps( data )
+        str_data = str_data.encode("ascii")
+
+        list_snapshot.add( zlib.compress(str_data)  )
+        # list_snapshot.add( str_data  )
+
+        print("ID", data["m_id"], " len snapshot: ", len( list_snapshot ) )
+        self.container._p_changed = 1
+        # self._p_changed = 1
+
+class ITCSGame(Persistent):
+    def __init__(self):
+        self.csgame = {}
+
+    def insert(self, data):
+        self.csgame[ data["m_id"] ] = data
+        self._p_changed = 1
+
+
+class ITMStatus(Persistent):
+    def __init__(self):
+        self.tmstatus = set()
+
+    def insert(self, data):
+        self.tmstatus.add( data )
+        self._p_changed = 1
+
+
+TSnapshot = root.setdefault("snapshot" , ITSnapshot() )
+TCSGame = root.setdefault( "csgame", ITCSGame() )
+TMStatus = root.setdefault( "mstatus", ITMStatus() )
 
 
 class CSGame(Model):
@@ -13,6 +65,7 @@ class CSGame(Model):
 
     class Meta:
         database = db
+
 
 class Snapshot( Model ):
     m_id       = CharField()
@@ -52,6 +105,7 @@ class MStatus( Model ):
         database = db
 
 
+
 def init_db():
     for filename in glob.glob( os.path.join(WORK_DIR, "logs", "*.log") ):
         os.remove(filename)
@@ -75,7 +129,7 @@ def get_size():
 
     return int( res[0] / 1024 )
 
-# "SELECT * FROM HtmlData ORDER BY rowid DESC LIMIT 1;"    
+# "SELECT * FROM HtmlData ORDER BY rowid DESC LIMIT 1;"
 # cursor = db.execute_sql('select count(*) from snapshot;')
 # res = cursor.fetchone()
 # print('Total: ', res[0])

@@ -7,7 +7,9 @@ from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
-from Model import init_db, CSGame, Snapshot
+from Model import init_db, CSGame, Snapshot, TCSGame, TSnapshot, zopedb
+import transaction
+
 
 init_db()
 log = l("Main")
@@ -31,11 +33,18 @@ def _check_new_fixture(*args):
     log.info(">>> before fixtures [%d]", len(BL.obj_bots))
     for fixture in fixtures:
         query = CSGame.select(  ).where( CSGame.m_id == fixture['m_id'] )
+
+        csgame_data = {
+            "m_id": fixture['m_id'],
+            "m_time": fixture['m_time'],
+            "team1": fixture['t1name'],
+            "team2": fixture['t2name']
+        }
+
+        TCSGame.insert(csgame_data)
+
         if not query:
-            
-            CSGame.insert({"m_id" : fixture['m_id'], "m_time" : fixture['m_time'],
-                "team1" : fixture['t1name'], "team2" : fixture['t2name']
-            }).execute()
+            CSGame.insert(csgame_data).execute()
 
         if fixture['m_id'] not in BL.id_bots:
             bot = Bot( fixture['m_id'], fixture['m_time'] )
@@ -60,7 +69,7 @@ def _bot_work():
                 query = Snapshot.select().where(Snapshot.m_id == m_id)
                 if bool(query):
                     Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-
+                    TSnapshot.delete( m_id )
 
 
     response = requests.get(REMOTE_API+ "/html")
@@ -92,7 +101,7 @@ def _bot_work():
 
     log.info("[ - end work bots = %d - ]", len(BL.obj_bots))
     log.info("Start [ removing garbage ]")
-    removing_garbage()
+    # removing_garbage()
     log.info("Stop  [ removing garbage ]")
 
 
@@ -107,6 +116,8 @@ def bot_work():
         _bot_work()
 
         log.info("-= bot work sleep 60 =-")
+        transaction.commit()
+        zopedb.pack()
         time.sleep(60)
 
 
@@ -165,7 +176,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main02()
+    # main02()
     # main()
-    # proc1()
+    proc1()
     # proc2()
