@@ -1,5 +1,5 @@
-import re, pickle, time, os, requests
-from Model import Snapshot, CSGame, MStatus
+import re, pickle, time, os, requests, zlib, json
+from Model import Snapshot, CSGame, MStatus, TMStatus, TSnapshot, TCSGame
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from tools import listdir_fullpath
@@ -7,8 +7,10 @@ from Globals import WORK_DIR, REMOTE_API
 from tools import log as _log
 from collections import namedtuple
 
-
 log = _log("BUILD")
+
+mstatus   = namedtuple("mstatus",   ["m_id", "m_status", "m_time"])
+msnapshot = namedtuple("msnapshot", ["m_id", "m_snapshot", "m_time_snapshot", "m_status"])
 
 
 PATH_OBJECT = os.path.join( WORK_DIR, "data", "objects" )
@@ -162,11 +164,11 @@ def get_fields_snapshot(html, winner, t_snapshot):
 
 class Fixture:
     def __init__(self,*args):
-        self.qid    = args[0]
-        self.m_id   = args[1]
-        self.m_time = args[2]
-        self.team01 = args[3]
-        self.team02 = args[4]
+        self.id     = args[0]
+        self.m_id   = args[0]
+        self.m_time = args[1]
+        self.team01 = args[2]
+        self.team02 = args[3]
         self._name_markets = set()
         # self._markets = []
         self._snapshots = []
@@ -214,12 +216,20 @@ def get_result_page(m_id):
 
 
 def object_building():
+    breakpoint()
     log.debug("Start. -- Build object --")
 
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
     # time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60  ) ).timestamp() )
+
+    # breakpoint()
+
     query05 = MStatus.select().where( MStatus.m_status == 1)
-    game_happened = [ x for x in query05.namedtuples() ]
+    
+    # game_happened = [ x for x in query05.namedtuples() ]
+    game_happened = [ mstatus(**x) for x in TMStatus.tmstatus if  x["m_status"] == 1]
+
+
     log.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
 
     game_happened = list( filter(
@@ -233,14 +243,13 @@ def object_building():
         filter( lambda x: os.path.join( PATH_OBJECT,  x.m_id ) not in objList, game_happened)
     )
     log.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
-    # =====
-    
+
     for game in game_happened:
 
-        query02 = Snapshot.select().where(Snapshot.m_id == game.m_id)
-        if not query02:
+        if game.m_id not in TSnapshot.container.keys():
             log.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
             continue
+
 
         _html = get_result_page(game.m_id)
         if not bool(_html):
@@ -257,27 +266,34 @@ def object_building():
         #     log.debug( "winner determine: Error"  )
         #     continue
 
-        query01 = CSGame.select().where( CSGame.m_id == game.m_id )
-        r = query01.tuples()[0]
+
+        r = tuple(TCSGame.csgame[game.m_id].values())
+
+        rtemp = r
 
         params = ( *r[:3], winner_dict['t1name'], winner_dict['t2name'] )
+
         fixture = Fixture( *params )
 
         log.debug( "Object create {}".format( game.m_id )   )
 
-        for snapshot in query02.namedtuples():
-            html = snapshot.m_snapshot.decode('unicode-escape')
+
+        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.container[game.m_id]]
+        decompress = sorted( decompress, key=lambda x: x.m_time_snapshot )
+        
+        for snapshot in decompress:
+            html = snapshot.m_snapshot
             markets, names = get_fields_snapshot( html, winner_dict, snapshot.m_time_snapshot )
             fixture.name_markets = names
-            fixture.markets = markets
+            fixture.markets = markets 
 
         # Andrey will add last snapshot
         fixture.markets = extract_last_snapshot( winner_dict )
         # It's ok. I done.
 
-        log.debug( "Object save %s", r[1]  )
+        log.debug( "Object save %s", r[0]  )
 
-        with open( os.path.join(PATH_OBJECT, r[1] ), "wb") as f:
+        with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
             pickle.dump( fixture, f )
 
         log.debug( "Object done {}".format(  game.m_id )  )

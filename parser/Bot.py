@@ -1,5 +1,5 @@
 # import redis
-from Model import MStatus, Snapshot, TSnapshot
+from Model import MStatus, Snapshot, TSnapshot, TMStatus
 # from Globals import REDIS_HOST, REDIS_PORT
 from datetime import datetime
 from tools import log as _log
@@ -55,11 +55,17 @@ class Bot:
             self.log.debug("Data extract_fixture len: {}".format( len( fixture ) ) )
 
         if match_get_live:
-            result = MStatus.insert_safe({
+            
+            data = {
+
                  "m_id" : self.m_id,
                  "m_status" : 1,
                  "m_time" : datetime.now().timestamp(),
-            })
+            }
+
+
+            result = MStatus.insert_safe(data)
+            TMStatus.insert( data )
             self.Live = result
             self.log.debug("Fixture is live {}".format( str( result ) ) )
 

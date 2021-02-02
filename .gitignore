@@ -6,6 +6,8 @@ parser/data/*.db
 parser/logs/*.log
 parser/doc.md
 parser/data/csbet.tar
+parser/data/csbe*
+parser/data/mydatab*
 parser/data/csbet.tar.gz
 uploads.sh
 fil.py

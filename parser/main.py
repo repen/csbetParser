@@ -67,9 +67,10 @@ def _bot_work():
             for obj in new:
                 m_id = obj.split("/")[-1]
                 query = Snapshot.select().where(Snapshot.m_id == m_id)
+                TSnapshot.delete( m_id )
                 if bool(query):
                     Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-                    TSnapshot.delete( m_id )
+                    
 
 
     response = requests.get(REMOTE_API+ "/html")
@@ -101,7 +102,7 @@ def _bot_work():
 
     log.info("[ - end work bots = %d - ]", len(BL.obj_bots))
     log.info("Start [ removing garbage ]")
-    # removing_garbage()
+    removing_garbage()
     log.info("Stop  [ removing garbage ]")
 
 

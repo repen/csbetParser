@@ -6,6 +6,7 @@ from tools import log as _log
 from ZODB import FileStorage, DB
 from BTrees.OOBTree import OOBTree
 from persistent import Persistent, list, dict
+import transaction
 # blob_dir = os.path.join( WORK_DIR,  "data", "fl")
 storage = FileStorage.FileStorage( os.path.join( WORK_DIR,  "data", "mydatabase.fs"), pack_keep_old=False )
 zopedb = DB(storage, large_record_size=1000000000000)
@@ -34,6 +35,11 @@ class ITSnapshot(Persistent):
         self.container._p_changed = 1
         # self._p_changed = 1
 
+    def delete(self, m_id):
+        self.container.pop(m_id, None)
+        transaction.commit()
+
+
 class ITCSGame(Persistent):
     def __init__(self):
         self.csgame = {}
@@ -45,17 +51,31 @@ class ITCSGame(Persistent):
 
 class ITMStatus(Persistent):
     def __init__(self):
-        self.tmstatus = set()
+        self.tmstatus = []
 
     def insert(self, data):
-        self.tmstatus.add( data )
+        self.tmstatus.append( data )
         self._p_changed = 1
 
 
 TSnapshot = root.setdefault("snapshot" , ITSnapshot() )
-TCSGame = root.setdefault( "csgame", ITCSGame() )
-TMStatus = root.setdefault( "mstatus", ITMStatus() )
+TCSGame   = root.setdefault( "csgame", ITCSGame() )
+TMStatus  = root.setdefault( "mstatus", ITMStatus() )
+# root["mstatus"] = ITMStatus()
+# TMStatus = root["mstatus"]
 
+
+# for x in ['269943', '269954', '269956', '269958', '269960', '269962', '269964']:
+
+#     data = {
+#         "m_id" : x,
+#         "m_status" : 1,
+#         "m_time" : 0,
+
+#     }
+#     TMStatus.insert(data)
+
+# transaction.commit()
 
 class CSGame(Model):
     m_id     = CharField(unique=True)
