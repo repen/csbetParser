@@ -1,5 +1,5 @@
-#docker build -t csparser_tester:latest .
-#docker run --rm -d -v betscsgo_tester:/usr/src/data --name csparsertester csparser_tester:latest
+#docker build -t csparser:latest .
+#docker run -d -v betscsgo_tester:/usr/src/data --name csparserapp csparser:latest
 FROM python:3.8
 
 
