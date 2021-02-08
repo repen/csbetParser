@@ -1,6 +1,5 @@
 # import redis
-from Model import MStatus, Snapshot, TSnapshot, TMStatus
-# from Globals import REDIS_HOST, REDIS_PORT
+from Model import TSnapshot, TMStatus
 from datetime import datetime
 from tools import log as _log
 
@@ -64,10 +63,9 @@ class Bot:
             }
 
 
-            result = MStatus.insert_safe(data)
             TMStatus.insert( data )
-            self.Live = result
-            self.log.debug("Fixture is live {}".format( str( result ) ) )
+            self.Live = True
+            self.log.debug("Fixture is live {}".format( str( self.Live ) ) )
 
         return fixture
 
@@ -77,11 +75,9 @@ class Bot:
 
         self.log.debug( "Data write on database Snapshot" )
         
-        # result = Snapshot.insert_safe( data.to_dict() )
-        result = True
         TSnapshot.insert( data.to_dict() )
 
-        self.log.debug( "Data write successfully {}".format( str(result) ) )
+        self.log.debug( "Data write successfully" )
 
 
     def main(self, *args):

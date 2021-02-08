@@ -1,5 +1,5 @@
 import re, pickle, time, os, requests, zlib, json
-from Model import Snapshot, CSGame, MStatus, TMStatus, TSnapshot, TCSGame
+from Model import TMStatus, TSnapshot, TCSGame, finished
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from tools import listdir_fullpath
@@ -41,8 +41,8 @@ def get_winner(html):
 
         return result
 
-
-    soup = BeautifulSoup(html, "html.parser")
+    soup = html
+    # soup = BeautifulSoup(html, "html.parser")
     dict_m = {}
 
     main_res =  soup.select_one( ".bm-main .bm-result")
@@ -126,7 +126,8 @@ def extract_last_snapshot(*args):
 Market = namedtuple( 'Market', ['name', 'left', 'right', 'winner', 'time_snapshot'] )
 
 def get_fields_snapshot(html, winner, t_snapshot):
-    soup = BeautifulSoup(html, "html.parser")
+    soup = html
+    # soup = BeautifulSoup(html, "html.parser")
     markets = soup.select("div.bet-events__item")
 
     M = {}
@@ -163,12 +164,13 @@ def get_fields_snapshot(html, winner, t_snapshot):
 
 
 class Fixture:
-    def __init__(self,*args):
+    def __init__(self,*args, **kwargs):
         self.id     = args[0]
         self.m_id   = args[0]
         self.m_time = args[1]
         self.team01 = args[2]
         self.team02 = args[3]
+        self.league = kwargs.setdefault("league", "")
         self._name_markets = set()
         # self._markets = []
         self._snapshots = []
@@ -198,6 +200,13 @@ class Fixture:
     def name_markets(self,):
         return self._name_markets
 
+    def _asdict(self):
+        for snapshot in self.__dict__["_snapshots"]:
+
+            for key in snapshot:
+                snapshot[key] = snapshot[key]._asdict()
+
+        return self.__dict__
 
 def create_task(m_id):
     url = REMOTE_API + "/task/{}".format(m_id)
@@ -216,33 +225,28 @@ def get_result_page(m_id):
 
 
 def object_building():
-    breakpoint()
     log.debug("Start. -- Build object --")
 
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
     # time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60  ) ).timestamp() )
 
-    # breakpoint()
-
-    query05 = MStatus.select().where( MStatus.m_status == 1)
-    
-    # game_happened = [ x for x in query05.namedtuples() ]
     game_happened = [ mstatus(**x) for x in TMStatus.tmstatus if  x["m_status"] == 1]
-
 
     log.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
 
     game_happened = list( filter(
-        lambda x :  datetime.fromtimestamp( int( x.m_time ) ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
+        lambda x :  datetime.fromtimestamp( x.m_time ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
     )
     log.debug("Quantity fixtures for handling: {} ( filter time )".format(len( game_happened )))
 
     # i think what this excess =====
-    objList = listdir_fullpath(PATH_OBJECT)
+    # objList = listdir_fullpath(PATH_OBJECT)
+    objList = finished.get_all_id()
     game_happened = list(
-        filter( lambda x: os.path.join( PATH_OBJECT,  x.m_id ) not in objList, game_happened)
+        filter( lambda x: x.m_id not in objList, game_happened)
     )
     log.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
+
 
     for game in game_happened:
 
@@ -259,7 +263,8 @@ def object_building():
 
 
         # try:
-        winner_dict = get_winner( _html )
+        soup_html = BeautifulSoup(_html, "html.parser")
+        winner_dict = get_winner( soup_html )
         log.debug( "winner determine: %s", str(winner_dict)[:100]  )
         # except ( AssertionError, NotElementErr ) as Err:
         #     log.info("= Error", Err)
@@ -271,10 +276,13 @@ def object_building():
 
         rtemp = r
 
-        params = ( *r[:3], winner_dict['t1name'], winner_dict['t2name'] )
+        params = ( *r[:2], winner_dict['t1name'], winner_dict['t2name'] )
+        
 
-        fixture = Fixture( *params )
-
+        _league = soup_html.select_one(".bm-champpic-text")
+        league = _league.text if _league else ""
+        fixture = Fixture( *params , league = league.strip())
+        # breakpoint()
         log.debug( "Object create {}".format( game.m_id )   )
 
 
@@ -283,33 +291,24 @@ def object_building():
         
         for snapshot in decompress:
             html = snapshot.m_snapshot
-            markets, names = get_fields_snapshot( html, winner_dict, snapshot.m_time_snapshot )
+            markets, names = get_fields_snapshot( BeautifulSoup(html, "html.parser"), winner_dict, snapshot.m_time_snapshot )
             fixture.name_markets = names
             fixture.markets = markets 
 
-        # Andrey will add last snapshot
         fixture.markets = extract_last_snapshot( winner_dict )
-        # It's ok. I done.
 
         log.debug( "Object save %s", r[0]  )
 
-        with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
-            pickle.dump( fixture, f )
+        # breakpoint()
+
+        finished.add(fixture._asdict())
+        finished.transaction_commit()
+
+        # with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
+        #     pickle.dump( fixture, f )
 
         log.debug( "Object done {}".format(  game.m_id )  )
         # breakpoint()
-
-        def clear_db():
-            # db zone
-            # Snapshot.delete_snapshot( game.m_id )
-            # MStatus.delete().where(  MStatus.m_id == game.m_id  ).execute()
-            Snapshot.delete().where( Snapshot.m_id == game.m_id ).execute()
-            MStatus.update({
-                "m_status" : 0,
-            }).where(  MStatus.m_id == game.m_id  ).execute()
-            # ============
-            log.debug( "Snapshot deleted from database %s",  game.m_id    )
-            log.debug("Snapshot.delete")
 
     log.debug("============End func============")
 

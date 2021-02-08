@@ -5,25 +5,32 @@ from tools import log as _log
 
 from ZODB import FileStorage, DB
 from BTrees.OOBTree import OOBTree
-from persistent import Persistent, list, dict
+from persistent import Persistent
+from persistent.list import PersistentList
 import transaction
-# blob_dir = os.path.join( WORK_DIR,  "data", "fl")
+from datetime import datetime
+
+
 storage = FileStorage.FileStorage( os.path.join( WORK_DIR,  "data", "mydatabase.fs"), pack_keep_old=False )
 zopedb = DB(storage, large_record_size=1000000000000)
 connection = zopedb.open()
 
 root = connection.root()
-
+# breakpoint()
 db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
 log = _log("Model")
 
 class ITSnapshot(Persistent):
+
     def __init__(self):
         self.container = OOBTree()
 
 
     def insert(self, data):
-        list_snapshot = self.container.setdefault(data["m_id"], set())
+        if data["m_id"] not in self.container.keys():
+            self.container[data["m_id"]] = set()
+
+        list_snapshot = self.container[data["m_id"]] 
 
         str_data = json.dumps( data )
         str_data = str_data.encode("ascii")
@@ -33,11 +40,13 @@ class ITSnapshot(Persistent):
 
         log.info("ID %s len snapshot: %d", data["m_id"] , len( list_snapshot ) )
         self.container._p_changed = 1
-        # self._p_changed = 1
+
+
 
     def delete(self, m_id):
-        self.container.pop(m_id, None)
-        transaction.commit()
+        if m_id in self.container.keys():
+            self.container.pop(m_id, None)
+            transaction.commit()
 
 
 class ITCSGame(Persistent):
@@ -57,25 +66,49 @@ class ITMStatus(Persistent):
         self.tmstatus.append( data )
         self._p_changed = 1
 
+class Finished(Persistent):
+
+    @staticmethod
+    def transaction_commit():
+        transaction.commit()
+
+    def __init__(self):
+        self.tree = OOBTree()
+
+
+    def get_id_list(self):
+        return list(self.tree.keys())
+
+    def add(self, data):
+        self.tree[ data["m_id"] ] = data
+
+    def get_all_id(self):
+        return list( self.tree.keys() )
+
+
+
 
 TSnapshot = root.setdefault("snapshot" , ITSnapshot() )
-TCSGame   = root.setdefault( "csgame", ITCSGame() )
-TMStatus  = root.setdefault( "mstatus", ITMStatus() )
-# root["mstatus"] = ITMStatus()
-# TMStatus = root["mstatus"]
+TCSGame   = root.setdefault( "csgame",   ITCSGame()   )
+TMStatus  = root.setdefault( "mstatus",  ITMStatus()  )
+finished  = root.setdefault("finished",  Finished()   )
+# transaction.commit()
 
+# breakpoint()
+# root["mstatus"].tmstatus = []
 
-# for x in ['269943', '269954', '269956', '269958', '269960', '269962', '269964']:
-
+# for x in ['269898', '269913', '269943', '269954', '269956', '269958', '269960', '269962', '269964', '269966', '269968']:
 #     data = {
-#         "m_id" : x,
-#         "m_status" : 1,
-#         "m_time" : 0,
 
+#      "m_id" : x,
+#      "m_status" : 1,
+#      "m_time" : 0,
 #     }
 #     TMStatus.insert(data)
 
-# transaction.commit()
+# transaction.commit()    
+
+# breakpoint()
 
 class CSGame(Model):
     m_id     = CharField(unique=True)
@@ -126,49 +159,10 @@ class MStatus( Model ):
 
 
 
-def init_db():
+def prepare():
     for filename in glob.glob( os.path.join(WORK_DIR, "logs", "*.log") ):
         os.remove(filename)
 
-    # CSGame.drop_table()
-    # Snapshot.drop_table()
-    # MStatus.drop_table()
-
-    CSGame.create_table()
-    Snapshot.create_table()
-    MStatus.create_table()
-
-
-def get_size():
-    '''
-    Returns:
-        int:returning size database on KB
-    '''
-    cursor = db.execute_sql('SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()')
-    res = cursor.fetchone()
-
-    return int( res[0] / 1024 )
-
-# "SELECT * FROM HtmlData ORDER BY rowid DESC LIMIT 1;"
-# cursor = db.execute_sql('select count(*) from snapshot;')
-# res = cursor.fetchone()
-# print('Total: ', res[0])
-# SELECT COUNT(*) *  -- The number of rows in the table
-#      ( 24 +        -- The length of all 4 byte int columns
-#        12 +        -- The length of all 8 byte int columns
-#        128 )       -- The estimate of the average length of all string columns
-# FROM MyTable
-
-# cursor = db.execute_sql('SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()')
-# res = cursor.fetchone()
-
-# db.execute_sql("VACUUM")
-# time = datetime.fromtimestamp( r.m_time_snapshot ).strftime("%Y.%m.%d %H:%M")
-
 
 if __name__ == '__main__':
-    # query = CSGame.select()
-    # query = Snapshot.select().where(Snapshot.m_id == "267805")
-    query = Snapshot.select()
-    # breakpoint()
-    print(len(query))
+    pass

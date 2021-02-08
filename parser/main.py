@@ -1,17 +1,17 @@
 from request import main as get_fixture
 import requests, time, os
-from tools import log as l, listdir_fullpath
+from tools import log as l
 from Bot import Bot
 from bs4 import BeautifulSoup
 from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API, BASE_DIR
 from itertools import count
-from Model import init_db, CSGame, Snapshot, TCSGame, TSnapshot, zopedb
+from Model import prepare, CSGame, Snapshot, TCSGame, TSnapshot, zopedb, finished
 import transaction
 
 
-init_db()
+prepare()
 log = l("Main")
 
 ids = []
@@ -32,7 +32,6 @@ def _check_new_fixture(*args):
 
     log.info(">>> before fixtures [%d]", len(BL.obj_bots))
     for fixture in fixtures:
-        query = CSGame.select(  ).where( CSGame.m_id == fixture['m_id'] )
 
         csgame_data = {
             "m_id": fixture['m_id'],
@@ -42,9 +41,6 @@ def _check_new_fixture(*args):
         }
 
         TCSGame.insert(csgame_data)
-
-        if not query:
-            CSGame.insert(csgame_data).execute()
 
         if fixture['m_id'] not in BL.id_bots:
             bot = Bot( fixture['m_id'], fixture['m_time'] )
@@ -60,17 +56,14 @@ def _bot_work():
 
     def removing_garbage():
         nonlocal _objs
-        obj_list = set(listdir_fullpath(os.path.join(BASE_DIR, "data", "objects")))
+        obj_list = set(finished.get_id_list())
+
         if _objs != obj_list:
             new = obj_list.difference(_objs)
             _objs = obj_list
             for obj in new:
                 m_id = obj.split("/")[-1]
-                query = Snapshot.select().where(Snapshot.m_id == m_id)
                 TSnapshot.delete( m_id )
-                if bool(query):
-                    Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-                    
 
 
     response = requests.get(REMOTE_API+ "/html")
@@ -116,9 +109,9 @@ def bot_work():
 
         _bot_work()
 
-        log.info("-= bot work sleep 60 =-")
         transaction.commit()
         zopedb.pack()
+        log.info("-= bot work sleep 60 =-")
         time.sleep(60)
 
 
@@ -158,6 +151,8 @@ def main02():
             except Exception as e:
                 log.error("Error", exc_info=True)
 
+        transaction.commit()
+        zopedb.pack()
         log.info("-= bot work sleep 60 c=%d", c)
         time.sleep(z)
 
@@ -177,7 +172,7 @@ def main():
 
 
 if __name__ == '__main__':
-    # main02()
+    main02()
     # main()
-    proc1()
+    # proc1()
     # proc2()
