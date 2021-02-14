@@ -111,7 +111,6 @@ def bot_work():
 
         transaction.commit()
         zopedb.pack()
-        zopedb.cacheMinimize()
         log.info("-= bot work sleep 60 =-")
         time.sleep(60)
 
@@ -154,7 +153,6 @@ def main02():
 
         transaction.commit()
         zopedb.pack()
-        zopedb.cacheMinimize()
         log.info("-= bot work sleep 60 c=%d", c)
         time.sleep(z)
 

@@ -309,7 +309,6 @@ def object_building():
 
         log.debug( "Object done {}".format(  game.m_id )  )
         # breakpoint()
-    zopedb.cacheMinimize()
     log.debug("============End func============")
 
 if __name__ == '__main__':
