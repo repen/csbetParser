@@ -1,5 +1,5 @@
 import re, pickle, time, os, requests, zlib, json
-from Model import TMStatus, TSnapshot, TCSGame, finished
+from Model import TMStatus, TSnapshot, TCSGame, finished, zopedb
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from tools import listdir_fullpath
@@ -309,7 +309,7 @@ def object_building():
 
         log.debug( "Object done {}".format(  game.m_id )  )
         # breakpoint()
-
+    zopedb.cacheMinimize()
     log.debug("============End func============")
 
 if __name__ == '__main__':
