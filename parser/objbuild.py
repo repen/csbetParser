@@ -1,11 +1,11 @@
-import re, pickle, time, os, requests, zlib, json
+import re, os, requests, zlib, json
 from Model import TMStatus, TSnapshot, TCSGame, finished, zopedb
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
-from tools import listdir_fullpath
 from Globals import WORK_DIR, REMOTE_API
 from tools import log as _log
 from collections import namedtuple
+from ydisk import upload_object
 
 log = _log("BUILD")
 
@@ -263,6 +263,7 @@ def object_building():
 
 
         # try:
+        upload_object(zlib.compress(_html.encode("utf8")), "id_" + str(game.m_id) )
         soup_html = BeautifulSoup(_html, "html.parser")
         winner_dict = get_winner( soup_html )
         log.debug( "winner determine: %s", str(winner_dict)[:100]  )

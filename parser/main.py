@@ -1,5 +1,5 @@
 from request import main as get_fixture
-import requests, time, os
+import requests, time, os, zlib
 from tools import log as l
 from Bot import Bot
 from bs4 import BeautifulSoup
@@ -9,6 +9,8 @@ from Globals import REMOTE_API, BASE_DIR
 from itertools import count
 from Model import prepare, CSGame, Snapshot, TCSGame, TSnapshot, zopedb, finished
 import transaction
+from ydisk import upload_object
+from datetime import datetime
 
 
 prepare()
@@ -70,6 +72,9 @@ def _bot_work():
     data = response.json()
     time_snapshot = data['snapshot_time']
     html = data['data']
+    
+    upload_object( zlib.compress( html.encode("utf8") ) , "date_" + str(int(datetime.now().timestamp())) )
+    
     log.info("Bot Work response html %d", len(html) )
 
     # assert 250000 < len( html )
