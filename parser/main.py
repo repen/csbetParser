@@ -141,7 +141,7 @@ def proc1():
     
 def main02():
     for c in count():
-        z = 60
+        z = 50
         if c % 10 == 0:
             _check_new_fixture()
 
