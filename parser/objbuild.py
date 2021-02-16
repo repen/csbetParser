@@ -303,8 +303,6 @@ def object_building():
 
         finished.add(fixture._asdict())
         finished.transaction_commit()
-        zopedb.cacheMinimize()
-
         # with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
         #     pickle.dump( fixture, f )
 
