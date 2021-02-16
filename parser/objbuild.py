@@ -91,7 +91,7 @@ def get_winner(html):
             dict_m[name_market + "|proc2"] = 0
             dict_m[name_market + "|koef1"] = 1.00
             dict_m[name_market + "|koef2"] = 1.00
-  
+        # breakpoint()
         winner = detect( market['class'] )
         if winner == 0:
             score_text = market.select_one(".bma-score").text if market.select_one(".bma-score") else "0"
@@ -118,12 +118,18 @@ def extract_last_snapshot(*args):
                 win_dict[name + "|sum2"], 
                 win_dict[name], 
                 int( datetime.now().timestamp() ),
+
             )
             res[name] = obj
     return res
 
 
-Market = namedtuple( 'Market', ['name', 'left', 'right', 'winner', 'time_snapshot'] )
+# Market  = namedtuple( 'Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"] )
+
+class Market(namedtuple('Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"])):
+
+    def __new__(cls, *args, koefleft=None, koefright=None):
+        return super().__new__( cls, *args, koefleft=koefleft, koefright=koefright)
 
 def get_fields_snapshot(html, winner, t_snapshot):
     soup = html
@@ -135,13 +141,16 @@ def get_fields_snapshot(html, winner, t_snapshot):
     name_market = "Main"
     left  = soup.select_one(".sys-stat-abs-1").text
     right = soup.select_one(".sys-stat-abs-2").text
+    koef_left  = hand_num(soup.select_one(".sys-stat-koef-1").text) if soup.select_one(".sys-stat-koef-1") else 1
+    koef_right = hand_num(soup.select_one(".sys-stat-koef-2").text) if soup.select_one(".sys-stat-koef-2") else 1
+
     
     param = ( 
         name_market, hand_num( left ) , hand_num( right ), winner[ name_market ], t_snapshot,
     )
     
     names.append( name_market )
-    M[name_market] = Market( *param )
+    M[name_market] = Market( *param, koefleft=koef_left, koefright=koef_right )
 
     for market in markets:
         name_market = market.select_one(".bet-event__text-inside-part").text.strip()
@@ -159,7 +168,6 @@ def get_fields_snapshot(html, winner, t_snapshot):
         # M.append( Market( *param ) )
         M[name_market] = Market( *param )
         # {"name_market" : Market}
-
     return M, names
 
 
@@ -300,15 +308,12 @@ def object_building():
 
         log.debug( "Object save %s", r[0]  )
 
-        # breakpoint()
-
         finished.add(fixture._asdict())
         finished.transaction_commit()
         # with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
         #     pickle.dump( fixture, f )
 
         log.debug( "Object done {}".format(  game.m_id )  )
-        # breakpoint()
     log.debug("============End func============")
 
 if __name__ == '__main__':
