@@ -2,7 +2,7 @@
 #docker run -d -v betscsgo_tester:/usr/src/data --name csparserapp csparser:latest
 FROM python:3.8
 
-
+ENV YADISK_TOKEN not
 ENV path /usr/src
 COPY parser ${path}
 WORKDIR ${path}
