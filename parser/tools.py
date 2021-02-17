@@ -114,5 +114,47 @@ class Handler:
     def save_json(path, data):
         with open(path, "w") as f:
             json.dump(data, f)
+
+def divider(arr):
+    '''
+    разрезать массив по времени
+    60 минут = 1 минута
+    6-1 = 30 минут
+    24-6 = 60 
+    72-24 = 120
+    '''
+    arr.reverse()
+    result = []
+    r0_1 = arr[-60:]
+    r0_2 = arr[-360:-60]
+    r0_3 = arr[-1440:-360]
+    r0_4 = arr[-5000:-1440]
+
+    if r0_1:
+        r0_1 = [ x for e, x in enumerate(r0_1) if e % 2 == 1]
+
+    if r0_2:
+        r0_2 = [ x for e, x in enumerate(r0_2) if e % 30 == 0]
+
+    if r0_3:
+        r0_3 = [ x for e, x in enumerate(r0_3) if e % 60 == 0]
+
+    if r0_3:
+        r0_4 = [ x for e, x in enumerate(r0_4) if e % 120 == 0]
+
+    r0_1.reverse()
+    r0_2.reverse()
+    r0_3.reverse()
+    r0_4.reverse()
+
+    result.extend( r0_1 )
+    result.extend( r0_2 )
+    result.extend( r0_3 )
+    result.extend( r0_4 )
+
+
+    result.reverse()
+    return result
+
 if __name__ == '__main__':
     pass

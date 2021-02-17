@@ -3,7 +3,7 @@ from Model import TMStatus, TSnapshot, TCSGame, finished, zopedb
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from Globals import WORK_DIR, REMOTE_API
-from tools import log as _log
+from tools import log as _log, divider
 from collections import namedtuple
 from ydisk import upload_object
 
@@ -305,6 +305,10 @@ def object_building():
             fixture.markets = markets 
 
         fixture.markets = extract_last_snapshot( winner_dict )
+        # обрезка лишних даных
+        fixture.__dict__["_snapshots"] = divider( fixture.__dict__["_snapshots"] )
+
+        # breakpoint()
 
         log.debug( "Object save %s", r[0]  )
 

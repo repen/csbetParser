@@ -13,8 +13,11 @@ def upload_file(path, destination):
 
 
 def upload_object(data, name):
-    log.info("Upload file len: %d in %s", len(data), name) 
-    y.upload( BytesIO(data) , os.path.join( "/Srv/csbet", name ) )
+    log.info("Upload file len: %d in %s", len(data), name)
+    try:
+        y.upload( BytesIO(data) , os.path.join( "/Srv/csbet", name ) )
+    except yadisk.exceptions.PathExistsError:
+        pass
 
 
 if __name__ == '__main__':
