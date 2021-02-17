@@ -153,7 +153,7 @@ def divider(arr):
     result.extend( r0_4 )
 
 
-    result.reverse()
+    # result.reverse()
     return result
 
 if __name__ == '__main__':
