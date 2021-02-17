@@ -123,7 +123,6 @@ def divider(arr):
     24-6 = 60 
     72-24 = 120
     '''
-    # arr.reverse()
     result = []
     r0_1 = arr[-60:]
     r0_2 = arr[-360:-60]
@@ -142,18 +141,11 @@ def divider(arr):
     if r0_3:
         r0_4 = [ x for e, x in enumerate(r0_4) if e % 120 == 0]
 
-    r0_1.reverse()
-    r0_2.reverse()
-    r0_3.reverse()
-    r0_4.reverse()
-
-    result.extend( r0_1 )
-    result.extend( r0_2 )
-    result.extend( r0_3 )
     result.extend( r0_4 )
+    result.extend( r0_3 )
+    result.extend( r0_2 )
+    result.extend( r0_1 )
 
-
-    result.reverse()
     return result
 
 if __name__ == '__main__':
