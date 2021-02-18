@@ -16,7 +16,8 @@ def upload_object(data, name):
     log.info("Upload file len: %d in %s", len(data), name)
     try:
         y.upload( BytesIO(data) , os.path.join( "/Srv/csbet", name ) )
-    except yadisk.exceptions.PathExistsError:
+    except ( Exception, yadisk.exceptions.PathExistsError) as e:
+        log.error("Error", exc_info=True)
         pass
 
 
