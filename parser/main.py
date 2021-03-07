@@ -158,8 +158,8 @@ def main02():
             z = 0
             log.info("[ Start Build ]")
             try:
-                # object_building()
-                pass
+                object_building()
+                # pass
                 log.info("[ End Build ]")
             except Exception as e:
                 log.error("Error", exc_info=True)

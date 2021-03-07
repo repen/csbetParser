@@ -36,7 +36,7 @@ class ITSnapshot( BaseInterface ):
     
     def reorganize(self):
         self.db.dict.reorganize()
-        log.info("Reorganize db: %d", ITSnapshot.YI)
+        log.info("Reorganize db")
 
 
     def insert(self, data):
@@ -79,7 +79,7 @@ class ITCSGame(BaseInterface):
         self.db[ data["m_id"] ] = data
         # self.csgame[ data["m_id"] ] = data
 
-    def get_csgame(self):
+    def get_csgame(self, m_id):
         self.open()
         data = self.db.get(m_id)
         self.close()
