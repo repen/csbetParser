@@ -87,7 +87,6 @@ def _bot_work():
     log.info("[ - start work bots = %d - ]", len(BL.obj_bots))
     soup = BeautifulSoup( html, "html.parser" )
     del_index = []
-    TSnapshot.open()
     
     for e, bot in enumerate( BL.obj_bots ):
         code, result = bot.main( time_snapshot, soup )
@@ -98,7 +97,7 @@ def _bot_work():
 
         if code == 401 or code == 402:del_index.append(e)
 
-    TSnapshot.dump()
+    TSnapshot.reorganize()
 
     temp = []
     for e, bot in enumerate( BL.obj_bots ):

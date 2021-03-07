@@ -31,18 +31,14 @@ class ITSnapshot( BaseInterface ):
 
     def __init__(self):
         # self.container = {}
-        self.db = None
         self.name = "snapshot.shv"
+        self.db = shelve.open(os.path.join(WORK_DIR, "data", self.name) )
+        
     
+    def reorganize(self):
+        self.db.dict.reorganize()
+        log.info("Reorganize db: %d", ITSnapshot.YI)
 
-    def dump(self):
-        if ITSnapshot.YI % 10 == 0:
-            log.info("Reorganize db: %d", ITSnapshot.YI)
-
-            # self.db.dict.reorganize()
-            # breakpoint()
-        self.db.close()
-        ITSnapshot.YI += 1
 
     def insert(self, data):
         
@@ -59,24 +55,19 @@ class ITSnapshot( BaseInterface ):
 
         self.db[data["m_id"]] = snapshot_set
 
+
         log.info("ID %s len snapshot: %d", data["m_id"] , snapshot_length )
 
     def get_keys(self):
-        self.open()
         keys = list(self.db.keys())
-        self.close()
         return keys
 
     def get_collection(self, m_id):
-        self.open()
         data = self.db.get(m_id)
-        self.close()
         return data
 
     def get_collection_and_del(self, m_id):
-        self.open()
         data = self.db.pop(m_id, None)
-        self.dump()
         return data
 
 
