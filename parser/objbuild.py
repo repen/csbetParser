@@ -295,7 +295,7 @@ def object_building():
         log.debug( "Object create {}".format( game.m_id )   )
 
 
-        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.get_collection( game.m_id )]
+        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.get_collection_and_del( game.m_id )]
         decompress = sorted( decompress, key=lambda x: x.m_time_snapshot )
         
         for snapshot in decompress:
