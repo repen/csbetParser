@@ -1,5 +1,5 @@
 import re, os, requests, zlib, json
-from Model import TMStatus, TSnapshot, TCSGame, finished, zopedb
+from Model import TMStatus, TSnapshot, TCSGame, finished
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from Globals import WORK_DIR, REMOTE_API
@@ -238,7 +238,7 @@ def object_building():
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
     # time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60  ) ).timestamp() )
 
-    game_happened = [ mstatus(**x) for x in TMStatus.tmstatus if  x["m_status"] == 1]
+    game_happened = [ mstatus(**x) for x in TMStatus.tmstatus() if  x["m_status"] == 1]
 
     log.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
 
@@ -258,7 +258,7 @@ def object_building():
 
     for game in game_happened:
 
-        if game.m_id not in TSnapshot.container.keys():
+        if game.m_id not in TSnapshot.get_keys():
             log.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
             continue
 
@@ -281,7 +281,7 @@ def object_building():
         #     continue
 
 
-        r = tuple(TCSGame.csgame[game.m_id].values())
+        r = tuple(TCSGame.get_csgame(game.m_id).values())
 
         rtemp = r
 
@@ -295,7 +295,7 @@ def object_building():
         log.debug( "Object create {}".format( game.m_id )   )
 
 
-        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.container[game.m_id]]
+        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.get_collection( game.m_id )]
         decompress = sorted( decompress, key=lambda x: x.m_time_snapshot )
         
         for snapshot in decompress:
@@ -313,7 +313,6 @@ def object_building():
         log.debug( "Object save %s", r[0]  )
 
         finished.add(fixture._asdict())
-        finished.transaction_commit()
         # with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
         #     pickle.dump( fixture, f )
 

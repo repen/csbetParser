@@ -21,3 +21,4 @@ __pycache__/
 *$py.class
 venv
 .idea
+parser/data/*.shv

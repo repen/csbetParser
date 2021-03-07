@@ -1,97 +1,153 @@
 from peewee import *
 from Globals import WORK_DIR
-import os, glob, json, zlib
+import os, glob, json, zlib, shelve, dbm
 from tools import log as _log
 
-from ZODB import FileStorage, DB
-from BTrees.OOBTree import OOBTree
-from persistent import Persistent
-from persistent.list import PersistentList
-import transaction
-from datetime import datetime
 
 
-storage = FileStorage.FileStorage( os.path.join( WORK_DIR,  "data", "mydatabase.fs"), pack_keep_old=False )
-zopedb = DB(storage, large_record_size=1000000000000)
-connection = zopedb.open()
-
-root = connection.root()
-# breakpoint()
 db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
 log = _log("Model")
 
-class ITSnapshot(Persistent):
+data = {
+    "sadsad" : set(),
+}
+
+class BaseInterface:
+
+    def open(self):
+        self.db = shelve.open(os.path.join(WORK_DIR, "data", self.name) )
+
+
+    def dump(self):
+        self.db.close()    
+
+    def close(self):
+        self.db.close()
+
+
+class ITSnapshot( BaseInterface ):
+
+    YI = 0
 
     def __init__(self):
-        self.container = OOBTree()
+        # self.container = {}
+        self.db = None
+        self.name = "snapshot.shv"
+    
 
+    def dump(self):
+        if ITSnapshot.YI % 10 == 0:
+            log.info("Reorganize db: %d", ITSnapshot.YI)
+
+            # self.db.dict.reorganize()
+            # breakpoint()
+        self.db.close()
+        ITSnapshot.YI += 1
 
     def insert(self, data):
-        if data["m_id"] not in self.container.keys():
-            self.container[data["m_id"]] = set()
+        
+        if data["m_id"] not in self.db.keys():
+            self.db[data["m_id"]] = set()
 
-        list_snapshot = self.container[data["m_id"]] 
+        snapshot_set = self.db[data["m_id"]]
 
         str_data = json.dumps( data )
         str_data = str_data.encode("ascii")
 
-        list_snapshot.add( zlib.compress(str_data)  )
-        # list_snapshot.add( str_data  )
+        snapshot_set.add( zlib.compress(str_data)  )
+        snapshot_length = len( snapshot_set )
 
-        log.info("ID %s len snapshot: %d", data["m_id"] , len( list_snapshot ) )
-        self.container._p_changed = 1
+        self.db[data["m_id"]] = snapshot_set
+
+        log.info("ID %s len snapshot: %d", data["m_id"] , snapshot_length )
+
+    def get_keys(self):
+        self.open()
+        keys = list(self.db.keys())
+        self.close()
+        return keys
+
+    def get_collection(self, m_id):
+        self.open()
+        data = self.db.get(m_id)
+        self.close()
+        return data
+
+    def get_collection_and_del(self, m_id):
+        self.open()
+        data = self.db.pop(m_id, None)
+        self.dump()
+        return data
 
 
-
-    def delete(self, m_id):
-        if m_id in self.container.keys():
-            self.container.pop(m_id, None)
-            transaction.commit()
-
-
-class ITCSGame(Persistent):
+class ITCSGame(BaseInterface):
     def __init__(self):
-        self.csgame = {}
+        self.db = None
+        self.name = "csgame.shv"
 
     def insert(self, data):
-        self.csgame[ data["m_id"] ] = data
-        self._p_changed = 1
+        self.db[ data["m_id"] ] = data
+        # self.csgame[ data["m_id"] ] = data
+
+    def get_csgame(self):
+        self.open()
+        data = self.db.get(m_id)
+        self.close()
+        return data
 
 
-class ITMStatus(Persistent):
+class ITMStatus:
     def __init__(self):
-        self.tmstatus = []
+        self.name = "mstatus.shv"
+        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
+        if "mstatus" not in db.keys():
+            db["mstatus"] = list()
+        db.close()
 
     def insert(self, data):
-        self.tmstatus.append( data )
-        self._p_changed = 1
+        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
+        temp = db["mstatus"]
+        temp.append( data )
+        db["mstatus"] = temp
+        db.close()
 
-class Finished(Persistent):
+    def tmstatus(self):
+        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
+        temp = db["mstatus"]
+        db.close()
+        return temp
 
-    @staticmethod
-    def transaction_commit():
-        transaction.commit()
+
+class Finished:
 
     def __init__(self):
-        self.tree = OOBTree()
-
+        self.name = "finished.shv"
+        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
+        self.key_list = list(db.keys())
+        db.close()
 
     def get_id_list(self):
-        return list(self.tree.keys())
+        return self.key_list
+        # return list(self.tree.keys())
 
     def add(self, data):
-        self.tree[ data["m_id"] ] = data
+        self.key_list.append( data["m_id"] )
+        # self.tree[ data["m_id"] ] = data
+        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
+        db[data["m_id"]] = data
+        db.close()
 
     def get_all_id(self):
-        return list( self.tree.keys() )
+        return self.key_list
+        # return list( self.tree.keys() )
 
 
 
 
-TSnapshot = root.setdefault("snapshot" , ITSnapshot() )
-TCSGame   = root.setdefault( "csgame",   ITCSGame()   )
-TMStatus  = root.setdefault( "mstatus",  ITMStatus()  )
-finished  = root.setdefault("finished",  Finished()   )
+TSnapshot = ITSnapshot()
+TCSGame   = ITCSGame()
+TMStatus  = ITMStatus()
+finished  = Finished()
 # transaction.commit()
 
 # breakpoint()

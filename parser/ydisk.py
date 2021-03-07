@@ -13,6 +13,7 @@ def upload_file(path, destination):
 
 
 def upload_object(data, name):
+    return
     log.info("Upload file len: %d in %s", len(data), name)
     try:
         y.upload( BytesIO(data) , os.path.join( "/Srv/csbet", name ) )

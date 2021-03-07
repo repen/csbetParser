@@ -1,5 +1,4 @@
 # import redis
-from Model import TSnapshot, TMStatus
 from datetime import datetime
 from tools import log as _log
 
@@ -26,7 +25,7 @@ class SnapshotData:
         }
 
 class Bot:
-    __slots__ = ('m_id', 'm_time', 'log' ,'COUNTER_ERROR', "Live")
+    __slots__ = ('m_id', 'm_time', 'log' ,'COUNTER_ERROR', "Live", "status")
 
     def __init__(self, m_id, m_time):
         self.m_id    = m_id
@@ -34,6 +33,7 @@ class Bot:
         self.log  = _log( self.m_id, "{}.log".format(self.m_id) )
         self.COUNTER_ERROR = 0
         self.Live = False
+        self.status = None
 
 
     def extract_fixture(self, soup):
@@ -62,22 +62,25 @@ class Bot:
                  "m_time" : datetime.now().timestamp(),
             }
 
-
-            TMStatus.insert( data )
+            self.status = data
+            # TMStatus.insert( data )
             self.Live = True
             self.log.debug("Fixture is live {}".format( str( self.Live ) ) )
 
         return fixture
 
+    def get_status(self):
+        return self.status
 
     def write_snapshot( self, time_snapshot, data ):
         data = SnapshotData( self.m_id, data, time_snapshot )
 
         self.log.debug( "Data write on database Snapshot" )
         
-        TSnapshot.insert( data.to_dict() )
+        # TSnapshot.insert( data.to_dict() )
 
         self.log.debug( "Data write successfully" )
+        return data.to_dict()
 
 
     def main(self, *args):
@@ -85,10 +88,11 @@ class Bot:
         soup = args[1]
         code = 200
         data = self.extract_fixture( soup )
+        result = None
 
         if data:
             self.log.debug("Data extract done. Snapshot write")
-            self.write_snapshot( time_snapshot, data )
+            result = self.write_snapshot( time_snapshot, data )
             self.log.debug("record done")
         else:
             self.log.debug( "Not data" )
@@ -99,4 +103,4 @@ class Bot:
         if self.Live:
             code = 401
         
-        return code
+        return code, result

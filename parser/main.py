@@ -1,14 +1,14 @@
 from request import main as get_fixture
-import requests, time, os, zlib
+import requests, time, zlib
 from tools import log as l
 from Bot import Bot
 from bs4 import BeautifulSoup
 from objbuild import object_building
 from multiprocessing import Process, Lock
-from Globals import REMOTE_API, BASE_DIR
+from Globals import REMOTE_API
 from itertools import count
-from Model import prepare, CSGame, Snapshot, TCSGame, TSnapshot, zopedb, finished
-import transaction
+from Model import prepare, CSGame, Snapshot, TCSGame, TSnapshot, finished, TMStatus
+
 from ydisk import upload_object
 from datetime import datetime
 
@@ -33,6 +33,7 @@ def _check_new_fixture(*args):
     fixtures = get_fixture(  time_snapshot, html )
 
     log.info(">>> before fixtures [%d]", len(BL.obj_bots))
+    TCSGame.open()
     for fixture in fixtures:
 
         csgame_data = {
@@ -49,6 +50,7 @@ def _check_new_fixture(*args):
             BL.obj_bots.append( bot )
             BL.id_bots.append( fixture['m_id'] )
 
+    TCSGame.dump()
     log.info("<<< after fixtures [%d]", len(BL.obj_bots))
 
 
@@ -85,10 +87,18 @@ def _bot_work():
     log.info("[ - start work bots = %d - ]", len(BL.obj_bots))
     soup = BeautifulSoup( html, "html.parser" )
     del_index = []
+    TSnapshot.open()
+    
     for e, bot in enumerate( BL.obj_bots ):
-        code = bot.main( time_snapshot, soup )
-        if code == 401 or code == 402:
-            del_index.append(e)
+        code, result = bot.main( time_snapshot, soup )
+        if result:
+            TSnapshot.insert(result)
+        
+        if code == 401:live = bot.get_status();TMStatus.insert( live )
+
+        if code == 401 or code == 402:del_index.append(e)
+
+    TSnapshot.dump()
 
     temp = []
     for e, bot in enumerate( BL.obj_bots ):
@@ -99,9 +109,9 @@ def _bot_work():
 
 
     log.info("[ - end work bots = %d - ]", len(BL.obj_bots))
-    log.info("Start [ removing garbage ]")
-    removing_garbage()
-    log.info("Stop  [ removing garbage ]")
+    # log.info("Start [ removing garbage ]")
+    # removing_garbage()
+    # log.info("Stop  [ removing garbage ]")
 
 
 
@@ -114,8 +124,6 @@ def bot_work():
 
         _bot_work()
 
-        transaction.commit()
-        zopedb.pack()
         log.info("-= bot work sleep 60 =-")
         time.sleep(60)
 
@@ -141,7 +149,7 @@ def proc1():
     
 def main02():
     for c in count():
-        z = 40
+        z = 54
         if c % 10 == 0:
             _check_new_fixture()
 
@@ -151,13 +159,12 @@ def main02():
             z = 0
             log.info("[ Start Build ]")
             try:
-                object_building()
+                # object_building()
+                pass
                 log.info("[ End Build ]")
             except Exception as e:
                 log.error("Error", exc_info=True)
 
-        transaction.commit()
-        zopedb.pack()
         log.info("-= bot work sleep 60 c=%d", c)
         time.sleep(z)
 
