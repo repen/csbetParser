@@ -7,7 +7,7 @@ from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API
 from itertools import count
-from Model import prepare, CSGame, Snapshot, TCSGame, TSnapshot, finished, TMStatus
+from Model import prepare, TCSGame, TSnapshot, finished, TMStatus
 
 from ydisk import upload_object
 from datetime import datetime

@@ -1,11 +1,10 @@
-from peewee import *
 from Globals import WORK_DIR
-import os, glob, json, zlib, shelve, dbm
+import os, glob, json, zlib, shelve
 from tools import log as _log
 
 
 
-db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
+# db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
 log = _log("Model")
 
 data = {
@@ -156,54 +155,6 @@ finished  = Finished()
 # transaction.commit()    
 
 # breakpoint()
-
-class CSGame(Model):
-    m_id     = CharField(unique=True)
-    m_time   = IntegerField()
-    team1    = CharField()
-    team2    = CharField()
-
-    class Meta:
-        database = db
-
-
-class Snapshot( Model ):
-    m_id       = CharField()
-    m_snapshot = BlobField()
-    m_time_snapshot = IntegerField()
-    m_status = IntegerField()
-
-    @staticmethod
-    def delete_snapshot(m_id):
-        Snapshot.delete().where( Snapshot.m_id == m_id ).execute()
-        # db.execute_sql("VACUUM")
-
-    @staticmethod
-    def insert_safe( data ):
-        try:
-            Snapshot.insert(data).execute()
-            result = True
-        except OperationalError:
-            result = False
-        return result
-
-    class Meta:
-        database = db
-
-class MStatus( Model ):
-    m_id       = CharField(unique=True)
-    m_status   = IntegerField()
-    m_time     = IntegerField()
-
-    @staticmethod
-    def insert_safe(data):
-        MStatus.insert(data).execute()
-        result = True
-        return result
-
-    class Meta:
-        database = db
-
 
 
 def prepare():

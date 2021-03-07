@@ -1,4 +1,3 @@
-# import redis
 from datetime import datetime
 from tools import log as _log
 
