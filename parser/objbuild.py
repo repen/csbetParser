@@ -277,7 +277,7 @@ def object_building():
 
         rtemp = r
 
-        params = ( *r[:2], winner_dict['t1name'], winner_dict['t2name'] )
+        params = ( r[0], r[-1], winner_dict['t1name'], winner_dict['t2name'] )
         
 
         _league = soup_html.select_one(".bm-champpic-text")
