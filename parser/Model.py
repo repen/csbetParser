@@ -101,8 +101,7 @@ class ITSnapshot:
 
     def get_collection_and_del(self, m_id):
         snapshots = self.get_collection(m_id)
-        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-        log.info("Del snapshot for game: %s", m_id)
+
         return snapshots
 
 
@@ -158,11 +157,13 @@ class Finished:
 
     def add(self, data):
         m_id = data["m_id"]
-
         GameFinished.insert({
             "m_id" : m_id,
             "data" : json.dumps( data )
         }).execute()
+
+        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
+        log.info("Del snapshot for game: %s", m_id)
 
         # self.key_list.append( data["m_id"] )
         # self.tree[ data["m_id"] ] = data
