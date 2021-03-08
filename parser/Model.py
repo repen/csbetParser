@@ -157,6 +157,8 @@ class Finished:
 
     def add(self, data):
         m_id = data["m_id"]
+        data["_name_markets"] = list( data["_name_markets"] )
+
         GameFinished.insert({
             "m_id" : m_id,
             "data" : json.dumps( data )
