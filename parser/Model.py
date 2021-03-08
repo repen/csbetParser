@@ -1,10 +1,8 @@
 
 from Globals import WORK_DIR
-import os, glob, json, zlib, shelve, sqlite3, json
+import os, glob, zlib, json
 from tools import log as _log
-from sqlitedict import SqliteDict
 from peewee import *
-from datetime import datetime
 
 db = SqliteDatabase(
     os.path.join( WORK_DIR,  "data", "sqlite.db"), check_same_thread=False
