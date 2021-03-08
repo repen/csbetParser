@@ -236,29 +236,21 @@ def object_building():
     log.debug("Start. -- Build object --")
 
     time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
-    # time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60  ) ).timestamp() )
 
-    game_happened = [ mstatus(**x) for x in TMStatus.tmstatus() if  x["m_status"] == 1]
+    game_happened = [ mstatus(**x) for x in TMStatus.get_live_csgame() ]
 
-    log.debug("Quantity fixtures for handling: {} ( all )".format(len( game_happened )))
+    log.debug("Quantity fixtures for handling: %d ( all )", len( game_happened ))
 
     game_happened = list( filter(
         lambda x :  datetime.fromtimestamp( x.m_time ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
     )
-    log.debug("Quantity fixtures for handling: {} ( filter time )".format(len( game_happened )))
 
-    # i think what this excess =====
-    # objList = listdir_fullpath(PATH_OBJECT)
-    objList = finished.get_all_id()
-    game_happened = list(
-        filter( lambda x: x.m_id not in objList, game_happened)
-    )
-    log.debug("Quantity fixtures for handling: {} ( filter already )".format(len( game_happened )))
+    log.debug("Quantity fixtures for handling: %d ( filter time )", len( game_happened ))
 
 
     for game in game_happened:
 
-        if game.m_id not in TSnapshot.get_keys():
+        if not TSnapshot.check_m_id_in_db(game.m_id):
             log.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
             continue
 
@@ -295,10 +287,10 @@ def object_building():
         log.debug( "Object create {}".format( game.m_id )   )
 
 
-        decompress = [ msnapshot( **json.loads( zlib.decompress(x) ) )  for x in TSnapshot.get_collection_and_del( game.m_id )]
-        decompress = sorted( decompress, key=lambda x: x.m_time_snapshot )
+        ts_snapshots = [ msnapshot( **x )  for x in TSnapshot.get_collection_and_del( game.m_id )]
+        # decompress = sorted( decompress, key=lambda x: x.m_time_snapshot )
         
-        for snapshot in decompress:
+        for snapshot in ts_snapshots:
             html = snapshot.m_snapshot
             markets, names = get_fields_snapshot( BeautifulSoup(html, "html.parser"), winner_dict, snapshot.m_time_snapshot )
             fixture.name_markets = names
@@ -308,11 +300,12 @@ def object_building():
         # обрезка лишних даных
         fixture.__dict__["_snapshots"] = divider( fixture.__dict__["_snapshots"] )
 
-        # breakpoint()
 
         log.debug( "Object save %s", r[0]  )
 
         finished.add(fixture._asdict())
+        TMStatus.csgame_processed(game.m_id)
+        
         # with open( os.path.join(PATH_OBJECT, r[0] ), "wb") as f:
         #     pickle.dump( fixture, f )
 

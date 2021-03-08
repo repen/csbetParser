@@ -1,135 +1,174 @@
+
 from Globals import WORK_DIR
-import os, glob, json, zlib, shelve
+import os, glob, json, zlib, shelve, sqlite3, json
 from tools import log as _log
+from sqlitedict import SqliteDict
+from peewee import *
+from datetime import datetime
+
+db = SqliteDatabase(
+    os.path.join( WORK_DIR,  "data", "sqlite.db"), check_same_thread=False
+)
+
+finished_db = SqliteDatabase(
+    os.path.join( WORK_DIR,  "data", "csfinished.db"), check_same_thread=False
+)
+
+class Snapshot(Model):
+    m_time_snapshot = IntegerField()
+    m_id = CharField()
+    m_snapshot  = BlobField()
+    m_status  = IntegerField()
+
+    class Meta:
+        database = db
 
 
+class CSgame(Model):
+    m_id  = CharField(unique=True)
+    team1 = CharField()
+    team2 = CharField()
+    m_time= IntegerField()
 
-# db = SqliteDatabase( os.path.join( WORK_DIR,  "data", "csbet.db") )
+    class Meta:
+        database = db
+
+
+class Gamestatus(Model):
+    m_id  = CharField()
+    m_status = IntegerField()
+    m_time= IntegerField()
+
+    class Meta:
+        database = db
+
+
+class GameFinished(Model):
+    m_id  = CharField()
+    data  = BlobField()
+
+    class Meta:
+        database = finished_db
+
+Snapshot.create_table()
+CSgame.create_table()
+Gamestatus.create_table()
+GameFinished.create_table()
+
+
 log = _log("Model")
 
-data = {
-    "sadsad" : set(),
-}
-
-class BaseInterface:
-
-    def open(self):
-        self.db = shelve.open(os.path.join(WORK_DIR, "data", self.name) )
-
-
-    def dump(self):
-        self.db.close()    
-
-    def close(self):
-        self.db.close()
-
-
-class ITSnapshot( BaseInterface ):
+class ITSnapshot:
 
     YI = 0
 
     def __init__(self):
-        # self.container = {}
         self.name = "snapshot.shv"
-        self.db = shelve.open(os.path.join(WORK_DIR, "data", self.name) )
-        
-    
-    def reorganize(self):
-        self.db.dict.reorganize()
-        log.info("Reorganize db")
-
+        self.temp = []
 
     def insert(self, data):
-        
-        if data["m_id"] not in self.db.keys():
-            self.db[data["m_id"]] = set()
+        str_data = data["m_snapshot"].encode("utf8")
+        compress = zlib.compress(str_data)
+        data["m_snapshot"] = compress
+        self.temp.append( data )
 
-        snapshot_set = self.db[data["m_id"]]
+        query = Snapshot.select().where(Snapshot.m_id == data["m_id"])
+        log.info("ID %s len snapshot: %d", data["m_id"], len(query) )
 
-        str_data = json.dumps( data )
-        str_data = str_data.encode("ascii")
-
-        snapshot_set.add( zlib.compress(str_data)  )
-        snapshot_length = len( snapshot_set )
-
-        self.db[data["m_id"]] = snapshot_set
+        # if ITSnapshot.YI == 5:
+        #     # breakpoint()
+        #     query = Snapshot.select().where(Snapshot.m_id == data["m_id"])
 
 
-        log.info("ID %s len snapshot: %d", data["m_id"] , snapshot_length )
+    def insert_many(self):
 
-    def get_keys(self):
-        keys = list(self.db.keys())
-        return keys
+
+        Snapshot.insert_many(self.temp).execute()
+
+        self.temp.clear()
+        ITSnapshot.YI += 1
+
+
+    def check_m_id_in_db(self, m_id):
+        return bool( Snapshot.select().where(Snapshot.m_id == m_id) )
 
     def get_collection(self, m_id):
-        data = self.db.get(m_id)
-        return data
+        query = Snapshot.select().where(Snapshot.m_id == m_id).order_by(Snapshot.m_time_snapshot)
+        snapshots = [x._asdict() for x in query.namedtuples()]
+        for snapshot in snapshots:
+            snapshot.pop("id", None)
+            snapshot["m_snapshot"] = zlib.decompress( snapshot["m_snapshot"] ).decode("utf8")
+
+        return snapshots
 
     def get_collection_and_del(self, m_id):
-        data = self.db.pop(m_id, None)
-        return data
+        snapshots = self.get_collection(m_id)
+        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
+        log.info("Del snapshot for game: %s", m_id)
+        return snapshots
 
 
-class ITCSGame(BaseInterface):
+class ITCSGame:
     def __init__(self):
         self.db = None
         self.name = "csgame.shv"
 
     def insert(self, data):
-        self.db[ data["m_id"] ] = data
-        # self.csgame[ data["m_id"] ] = data
+        try:
+            CSgame.insert(**data).execute()
+        except IntegrityError:
+            pass
 
     def get_csgame(self, m_id):
-        self.open()
-        data = self.db.get(m_id)
-        self.close()
+        # breakpoint()
+        # data = self.db.get(m_id)
+        query = CSgame.select().where(CSgame.m_id == m_id)
+        data = query.namedtuples()[0]._asdict()
+        data.pop("id", None)
         return data
 
 
 class ITMStatus:
     def __init__(self):
         self.name = "mstatus.shv"
-        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
-        if "mstatus" not in db.keys():
-            db["mstatus"] = list()
-        db.close()
 
     def insert(self, data):
-        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
-        temp = db["mstatus"]
-        temp.append( data )
-        db["mstatus"] = temp
-        db.close()
+        Gamestatus.insert(**data).execute()
 
     def tmstatus(self):
-        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
-        temp = db["mstatus"]
-        db.close()
-        return temp
+        """список матчей которые имеют метку live
+        Незабудь обновлять m_status = 0 после создания объекта
+        """
+        query = Gamestatus.select().where(Gamestatus.m_status == 0x01)
+        data = [ x._asdict() for x in query.namedtuples()]
+        [x.pop("id", None) for x in data]
+        return data
+
+    def csgame_processed(self, m_id):
+        Gamestatus.update(
+            {"m_status" : 0}).where(Gamestatus.m_id == m_id).execute()
+
+    def get_live_csgame(self):
+        return self.tmstatus()
 
 
 class Finished:
 
     def __init__(self):
         self.name = "finished.shv"
-        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
-        self.key_list = list(db.keys())
-        db.close()
 
-    def get_id_list(self):
-        return self.key_list
-        # return list(self.tree.keys())
 
     def add(self, data):
-        self.key_list.append( data["m_id"] )
-        # self.tree[ data["m_id"] ] = data
-        db = shelve.open(os.path.join(WORK_DIR, "data", self.name))
-        db[data["m_id"]] = data
-        db.close()
+        m_id = data["m_id"]
 
-    def get_all_id(self):
-        return self.key_list
-        # return list( self.tree.keys() )
+        GameFinished.insert({
+            "m_id" : m_id,
+            "data" : json.dumps( data )
+        }).execute()
+
+        # self.key_list.append( data["m_id"] )
+        # self.tree[ data["m_id"] ] = data
+
 
 
 

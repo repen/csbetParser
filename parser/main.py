@@ -7,7 +7,7 @@ from objbuild import object_building
 from multiprocessing import Process, Lock
 from Globals import REMOTE_API
 from itertools import count
-from Model import prepare, TCSGame, TSnapshot, finished, TMStatus
+from Model import prepare, TCSGame, TSnapshot, TMStatus
 
 from ydisk import upload_object
 from datetime import datetime
@@ -33,7 +33,7 @@ def _check_new_fixture(*args):
     fixtures = get_fixture(  time_snapshot, html )
 
     log.info(">>> before fixtures [%d]", len(BL.obj_bots))
-    TCSGame.open()
+
     for fixture in fixtures:
 
         csgame_data = {
@@ -50,25 +50,13 @@ def _check_new_fixture(*args):
             BL.obj_bots.append( bot )
             BL.id_bots.append( fixture['m_id'] )
 
-    TCSGame.dump()
+
     log.info("<<< after fixtures [%d]", len(BL.obj_bots))
 
 
 
 def _bot_work():
     _objs = set()
-
-    def removing_garbage():
-        nonlocal _objs
-        obj_list = set(finished.get_id_list())
-
-        if _objs != obj_list:
-            new = obj_list.difference(_objs)
-            _objs = obj_list
-            for obj in new:
-                m_id = obj.split("/")[-1]
-                TSnapshot.delete( m_id )
-
 
     response = requests.get(REMOTE_API+ "/html")
     data = response.json()
@@ -97,7 +85,7 @@ def _bot_work():
 
         if code == 401 or code == 402:del_index.append(e)
 
-    TSnapshot.reorganize()
+    TSnapshot.insert_many()
 
     temp = []
     for e, bot in enumerate( BL.obj_bots ):
@@ -108,9 +96,7 @@ def _bot_work():
 
 
     log.info("[ - end work bots = %d - ]", len(BL.obj_bots))
-    # log.info("Start [ removing garbage ]")
-    # removing_garbage()
-    # log.info("Stop  [ removing garbage ]")
+
 
 
 
