@@ -161,7 +161,7 @@ class Finished:
 
         GameFinished.insert({
             "m_id" : m_id,
-            "data" : json.dumps( data )
+            "data" : zlib.compress( json.dumps( data ).encode("ascii") )
         }).execute()
 
         Snapshot.delete().where(Snapshot.m_id == m_id).execute()
