@@ -303,7 +303,7 @@ def object_building():
         # update
         TSnapshot.snapshot_del(game.m_id)
         TMStatus.csgame_processed(game.m_id)
-
+    build_srv.close()
     log.debug("============End func============")
 
 
