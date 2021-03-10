@@ -285,7 +285,7 @@ def object_building():
         _league = soup_html.select_one(".bm-champpic-text")
         league = _league.text if _league else ""
 
-        ts_snapshots = [ msnapshot( **x )  for x in TSnapshot.get_collection_and_del( game.m_id )]
+        ts_snapshots = [ msnapshot( **x )  for x in TSnapshot.get_collection( game.m_id )]
         
         dparams = {
             "m_id" : r[0],
@@ -297,8 +297,11 @@ def object_building():
             "winner_dict" : winner_dict,
         }
         
+        # send
         IParams(**dparams)
         build_srv.send( dparams )
+        # update
+        TSnapshot.snapshot_del(game.m_id)
         TMStatus.csgame_processed(game.m_id)
 
     log.debug("============End func============")

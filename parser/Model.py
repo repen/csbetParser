@@ -86,10 +86,12 @@ class ITSnapshot:
 
         return snapshots
 
-    def get_collection_and_del(self, m_id):
+    def get_collection_and(self, m_id):
         snapshots = self.get_collection(m_id)
-        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
         return snapshots
+
+    def snapshot_del(self, m_id):
+        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
 
 
 class ITCSGame:
