@@ -1,15 +1,48 @@
-import re, os, requests, zlib
-from Model import TMStatus, TSnapshot, TCSGame
-from datetime import datetime, timedelta
+from multiprocessing.connection import Listener
+import traceback
+from queue import Queue
+from itertools import count
+from threading import Thread
+
+import re, os, zlib, json
+from datetime import datetime
 from bs4 import BeautifulSoup
 from Globals import WORK_DIR, REMOTE_API
-from tools import log as _log
+from tools import log as _log, divider
 from collections import namedtuple
 from ydisk import upload_object
 from dataclasses import dataclass
-from multiprocessing.connection import Client
+from peewee import *
 
-log = _log("prebuild")
+log = _log("RemoteBuild")
+
+
+finished_db = SqliteDatabase(
+    os.path.join( WORK_DIR,  "data", "csfinished.db"), check_same_thread=False
+)
+
+class GameFinished(Model):
+    m_id  = CharField()
+    data  = BlobField()
+
+    class Meta:
+        database = finished_db
+
+
+def write(data):
+    m_id = data["m_id"]
+    data["_name_markets"] = list( data["_name_markets"] )
+
+    GameFinished.insert({
+        "m_id" : m_id,
+        "data" : zlib.compress( json.dumps( data ).encode("ascii") )
+    }).execute()
+
+    # Snapshot.delete().where(Snapshot.m_id == m_id).execute()
+    log.info("Write game [%s] in database", m_id)
+
+q_input = Queue()
+GameFinished.create_table()
 
 mstatus   = namedtuple("mstatus",   ["m_id", "m_status", "m_time"])
 msnapshot = namedtuple("msnapshot", ["m_id", "m_snapshot", "m_time_snapshot", "m_status"])
@@ -17,14 +50,12 @@ msnapshot = namedtuple("msnapshot", ["m_id", "m_snapshot", "m_time_snapshot", "m
 
 PATH_OBJECT = os.path.join( WORK_DIR, "data", "objects" )
 
-class NotElementErr( Exception ):
-    pass
-
 def hand_num(text):
     if not text:
         return 0
     if "." in text and "x" in text:
         return float(".".join( re.findall(r"(\d+)\.?", text) ) )
+    # print(text)
     return int("".join( re.findall(r"\d", text) ) )
 
 def get_htime(string):
@@ -43,6 +74,7 @@ def get_winner(html):
         return result
 
     soup = html
+    # soup = BeautifulSoup(html, "html.parser")
     dict_m = {}
 
     main_res =  soup.select_one( ".bm-main .bm-result")
@@ -216,19 +248,6 @@ class Fixture:
 
         return self.__dict__
 
-def create_task(m_id):
-    url = REMOTE_API + "/task/{}".format(m_id)
-    log.info( "Create Task %s", url )
-    response = requests.get(url)
-
-def get_result_page(m_id):
-    RES_URL = REMOTE_API + "/result/{}".format(m_id)
-    log.info("Get result page: %s", RES_URL)
-    response = requests.get(RES_URL)
-    data = response.json()
-    html = data['result']
-    log.info("Response for %s. Result: [%s]. Length [%d]", m_id, bool( html ), len(html) )
-    return data["result"]
 
 @dataclass
 class IParams:
@@ -240,73 +259,61 @@ class IParams:
     ts_snapshots:list
     winner_dict:dict
 
-def object_building():
-    log.debug("Start. -- Build object --")
+def snapshot_service(params):
+    param = IParams(**params)
 
-    time_difference = int( datetime.now().timestamp() - ( datetime.now() - timedelta( seconds = 60 * 60 * 5 ) ).timestamp() )
+    log.debug( "Object create {}".format( param.m_id )   )
 
-    game_happened = [ mstatus(**x) for x in TMStatus.get_live_csgame() ]
+    fixture = Fixture( 
+        param.m_id, param.m_time,
+        param.team01, param.team02,
+        league = param.league.strip())
 
-    log.debug("Quantity fixtures for handling: %d ( all )", len( game_happened ))
+    for snapshot in param.ts_snapshots:
+        html = snapshot.m_snapshot
+        markets, names = get_fields_snapshot( BeautifulSoup(html, "html.parser"), param.winner_dict, snapshot.m_time_snapshot )
+        fixture.name_markets = names
+        fixture.markets = markets
 
-    game_happened = list( filter(
-        lambda x :  datetime.fromtimestamp( x.m_time ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
-    )
+    fixture.markets = extract_last_snapshot( param.winner_dict )
+    # обрезка лишних даных
+    fixture.__dict__["_snapshots"] = divider( fixture.__dict__["_snapshots"] )
 
-    log.debug("Quantity fixtures for handling: %d ( filter time )", len( game_happened ))
+    log.debug( "Object [%s] write in sqlite", param.m_id  )
+    log.debug( "Object done {}".format(  param.m_id )  )
 
-    build_srv = Client("/tmp/build_obj", authkey=b"qwerty")
-    
-    for game in game_happened:
+    write( fixture._asdict() ) # -> в базу
 
-        if not TSnapshot.check_m_id_in_db(game.m_id):
-            log.debug( "Fixture {} is not in Shanpshot.db".format( game.m_id) )
-            continue
+def queue_service():
 
+    for c in count():
+        params = q_input.get()
 
-        _html = get_result_page(game.m_id)
-        if not bool(_html):
-            create_task(game.m_id)
-            log.info("Continue: not html %s", bool(_html))
-            continue
-
-        
-        upload_object(zlib.compress(_html.encode("utf8")), "id_" + str(game.m_id) )
-        soup_html = BeautifulSoup(_html, "html.parser")
-        winner_dict = get_winner( soup_html )
-        log.debug( "winner determine: %s", str(winner_dict)[:100]  )
+        snapshot_service( params )
 
 
-        r = tuple(TCSGame.get_csgame(game.m_id).values())
+def worker(conn):
+    try:
+        while True:
+            payload = conn.recv()
+            q_input.put( payload )
+    except EOFError:
+        print("Connected close")
 
-        rtemp = r
+def server(address, authkey):
+    serv = Listener(address, authkey=authkey)
+    while True:
+        try:
+            client = serv.accept()
+            worker( client )
 
-        params = ( r[0], r[-1], winner_dict['t1name'], winner_dict['t2name'] )
-        
-
-        _league = soup_html.select_one(".bm-champpic-text")
-        league = _league.text if _league else ""
-
-        ts_snapshots = [ msnapshot( **x )  for x in TSnapshot.get_collection_and_del( game.m_id )]
-        
-        dparams = {
-            "m_id" : r[0],
-            "m_time" : r[-1],
-            "team01" : winner_dict['t1name'],
-            "team02" : winner_dict['t2name'],
-            "league" : league,
-            "ts_snapshots" : ts_snapshots,
-            "winner_dict" : winner_dict,
-        }
-        
-        IParams(**dparams)
-        build_srv.send( dparams )
-
-        TMStatus.csgame_processed(game.m_id)
+        except Exception:
+            traceback.print_exc()
 
 
-    log.debug("============End func============")
-
+def main():
+    Thread(target=queue_service, daemon=True).start()
+    server("/tmp/build_obj", authkey=b'qwerty') 
 
 if __name__ == '__main__':
-    pass
+    main()

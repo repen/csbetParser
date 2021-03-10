@@ -1,15 +1,10 @@
-
 from Globals import WORK_DIR
-import os, glob, zlib, json
+import os, glob, zlib
 from tools import log as _log
 from peewee import *
 
 db = SqliteDatabase(
     os.path.join( WORK_DIR,  "data", "sqlite.db"), check_same_thread=False
-)
-
-finished_db = SqliteDatabase(
-    os.path.join( WORK_DIR,  "data", "csfinished.db"), check_same_thread=False
 )
 
 class Snapshot(Model):
@@ -41,17 +36,9 @@ class Gamestatus(Model):
         database = db
 
 
-class GameFinished(Model):
-    m_id  = CharField()
-    data  = BlobField()
-
-    class Meta:
-        database = finished_db
-
 Snapshot.create_table()
 CSgame.create_table()
 Gamestatus.create_table()
-GameFinished.create_table()
 
 
 log = _log("Model")
@@ -101,7 +88,7 @@ class ITSnapshot:
 
     def get_collection_and_del(self, m_id):
         snapshots = self.get_collection(m_id)
-
+        # Snapshot.delete().where(Snapshot.m_id == m_id).execute()
         return snapshots
 
 
@@ -148,54 +135,9 @@ class ITMStatus:
     def get_live_csgame(self):
         return self.tmstatus()
 
-
-class Finished:
-
-    def __init__(self):
-        self.name = "finished.shv"
-
-
-    def add(self, data):
-        m_id = data["m_id"]
-        data["_name_markets"] = list( data["_name_markets"] )
-
-        GameFinished.insert({
-            "m_id" : m_id,
-            "data" : zlib.compress( json.dumps( data ).encode("ascii") )
-        }).execute()
-
-        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-        log.info("Del snapshot for game: %s", m_id)
-
-        # self.key_list.append( data["m_id"] )
-        # self.tree[ data["m_id"] ] = data
-
-
-
-
-
 TSnapshot = ITSnapshot()
 TCSGame   = ITCSGame()
 TMStatus  = ITMStatus()
-finished  = Finished()
-# transaction.commit()
-
-# breakpoint()
-# root["mstatus"].tmstatus = []
-
-# for x in ['269898', '269913', '269943', '269954', '269956', '269958', '269960', '269962', '269964', '269966', '269968']:
-#     data = {
-
-#      "m_id" : x,
-#      "m_status" : 1,
-#      "m_time" : 0,
-#     }
-#     TMStatus.insert(data)
-
-# transaction.commit()    
-
-# breakpoint()
-
 
 def prepare():
     for filename in glob.glob( os.path.join(WORK_DIR, "logs", "*.log") ):
