@@ -39,7 +39,7 @@ def write(data):
     }).execute()
 
     # Snapshot.delete().where(Snapshot.m_id == m_id).execute()
-    log.info("Write game [%s] in database", m_id)
+    log.info("Write game [%s] in database csfinished.db", m_id)
 
 q_input = Queue()
 GameFinished.create_table()
@@ -212,7 +212,6 @@ class Fixture:
         self.team02 = args[3]
         self.league = kwargs.setdefault("league", "")
         self._name_markets = set()
-        # self._markets = []
         self._snapshots = []
 
     @property
@@ -284,12 +283,13 @@ def snapshot_service(params):
 
     write( fixture._asdict() ) # -> в базу
 
+
 def queue_service():
 
     for c in count():
         params = q_input.get()
-
         snapshot_service( params )
+
 
 
 def worker(conn):

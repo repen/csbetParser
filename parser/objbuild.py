@@ -133,7 +133,6 @@ class Market(namedtuple('Market', ['name', 'left', 'right', 'winner', 'time_snap
 
 def get_fields_snapshot(html, winner, t_snapshot):
     soup = html
-    # soup = BeautifulSoup(html, "html.parser")
     markets = soup.select("div.bet-events__item")
 
     M = {}
@@ -180,7 +179,6 @@ class Fixture:
         self.team02 = args[3]
         self.league = kwargs.setdefault("league", "")
         self._name_markets = set()
-        # self._markets = []
         self._snapshots = []
 
     @property
@@ -253,7 +251,7 @@ def object_building():
         lambda x :  datetime.fromtimestamp( x.m_time ).timestamp() + time_difference < datetime.now().timestamp(), game_happened )
     )
 
-    log.debug("Quantity fixtures for handling: %d ( filter time )", len( game_happened ))
+    log.debug("Quantity fixtures for handling: %s ( filter time )", str( game_happened ))
 
     build_srv = Client("/tmp/build_obj", authkey=b"qwerty")
     
@@ -301,9 +299,7 @@ def object_building():
         
         IParams(**dparams)
         build_srv.send( dparams )
-
         TMStatus.csgame_processed(game.m_id)
-
 
     log.debug("============End func============")
 

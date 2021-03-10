@@ -88,7 +88,7 @@ class ITSnapshot:
 
     def get_collection_and_del(self, m_id):
         snapshots = self.get_collection(m_id)
-        # Snapshot.delete().where(Snapshot.m_id == m_id).execute()
+        Snapshot.delete().where(Snapshot.m_id == m_id).execute()
         return snapshots
 
 
