@@ -79,7 +79,7 @@ def get_winner(html):
 
     main_res =  soup.select_one( ".bm-main .bm-result")
     if not main_res:
-        raise NotElementErr( "No element .bm-main .bm-result" )
+        raise ValueError( "No element .bm-main .bm-result" )
     
     dict_m['Main'] = main_res.text.strip()
     dict_m['Main'] =  dict_m['Main'] if dict_m['Main'] else "Error"
