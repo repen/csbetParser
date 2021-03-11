@@ -12,7 +12,8 @@ from tools import log as _log, divider
 from collections import namedtuple
 from ydisk import upload_object
 from dataclasses import dataclass
-from peewee import *
+from peewee import SqliteDatabase, CharField, BlobField, Model
+import gc
 
 log = _log("RemoteBuild")
 
@@ -38,15 +39,10 @@ def write(data):
         "data" : zlib.compress( json.dumps( data ).encode("ascii") )
     }).execute()
 
-    # Snapshot.delete().where(Snapshot.m_id == m_id).execute()
     log.info("Write game [%s] in database csfinished.db", m_id)
 
 q_input = Queue()
 GameFinished.create_table()
-
-mstatus   = namedtuple("mstatus",   ["m_id", "m_status", "m_time"])
-msnapshot = namedtuple("msnapshot", ["m_id", "m_snapshot", "m_time_snapshot", "m_status"])
-
 
 PATH_OBJECT = os.path.join( WORK_DIR, "data", "objects" )
 
@@ -74,7 +70,6 @@ def get_winner(html):
         return result
 
     soup = html
-    # soup = BeautifulSoup(html, "html.parser")
     dict_m = {}
 
     main_res =  soup.select_one( ".bm-main .bm-result")
@@ -97,7 +92,6 @@ def get_winner(html):
     markets = soup.select(".bma-bet")
 
     for market in markets:
-        map_ = ""
         [x.extract() for x in market.select("div[class*=bma-title-]")]
         name_market = market.select_one(".bma-title").text.strip()
 
@@ -123,7 +117,6 @@ def get_winner(html):
             dict_m[name_market + "|proc2"] = 0
             dict_m[name_market + "|koef1"] = 1.00
             dict_m[name_market + "|koef2"] = 1.00
-        # breakpoint()
         winner = detect( market['class'] )
         if winner == 0:
             score_text = market.select_one(".bma-score").text if market.select_one(".bma-score") else "0"
@@ -135,7 +128,6 @@ def get_winner(html):
 
         dict_m[ name_market ] = winner
 
-    assert dict_m
     dict_m["t1name"] = t1
     dict_m["t2name"] = t2
     return dict_m
@@ -156,8 +148,6 @@ def extract_last_snapshot(*args):
     return res
 
 
-# Market  = namedtuple( 'Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"] )
-
 class Market(namedtuple('Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"])):
 
     def __new__(cls, *args, koefleft=None, koefright=None):
@@ -165,7 +155,6 @@ class Market(namedtuple('Market', ['name', 'left', 'right', 'winner', 'time_snap
 
 def get_fields_snapshot(html, winner, t_snapshot):
     soup = html
-    # soup = BeautifulSoup(html, "html.parser")
     markets = soup.select("div.bet-events__item")
 
     M = {}
@@ -197,9 +186,7 @@ def get_fields_snapshot(html, winner, t_snapshot):
             continue
 
         names.append( name_market )
-        # M.append( Market( *param ) )
         M[name_market] = Market( *param )
-        # {"name_market" : Market}
     return M, names
 
 
@@ -289,6 +276,7 @@ def queue_service():
     for c in count():
         params = q_input.get()
         snapshot_service( params )
+        gc.collect()
 
 
 
