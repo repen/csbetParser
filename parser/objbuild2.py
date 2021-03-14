@@ -1,9 +1,8 @@
 from multiprocessing.connection import Listener
-import traceback
+import traceback, time, sys
 from queue import Queue
-from itertools import count
 from threading import Thread
-
+from itertools import count
 import re, os, zlib, json
 from datetime import datetime
 from bs4 import BeautifulSoup
@@ -13,10 +12,14 @@ from collections import namedtuple
 from ydisk import upload_object
 from dataclasses import dataclass
 from peewee import SqliteDatabase, CharField, BlobField, Model
-import gc
+from multiprocessing.connection import Client
 
 log = _log("RemoteBuild")
 
+
+NAME = "/tmp/build_obj"
+if os.path.exists(NAME):
+    os.remove(NAME)
 
 finished_db = SqliteDatabase(
     os.path.join( WORK_DIR,  "data", "csfinished.db"), check_same_thread=False
@@ -57,80 +60,6 @@ def hand_num(text):
 def get_htime(string):
     res = datetime.fromtimestamp(int(string)).strftime("%Y-%m-%d %H:%M:%S")
     return res
-
-def get_winner(html):
-    def detect(array):
-        result = 0
-        for arr in array:
-            if "betting-won-team1" == arr:
-                result = 1
-            if "betting-won-team2" == arr:
-                result = 2
-
-        return result
-
-    soup = html
-    dict_m = {}
-
-    main_res =  soup.select_one( ".bm-main .bm-result")
-    if not main_res:
-        raise ValueError( "No element .bm-main .bm-result" )
-    
-    dict_m['Main'] = main_res.text.strip()
-    dict_m['Main'] =  dict_m['Main'] if dict_m['Main'] else "Error"
-
-    dict_m['Main|sum1']  = hand_num( soup.select_one(".bm-fullbet-summ.sys-stat-abs-1").text) if soup.select_one(".bm-fullbet-summ.sys-stat-abs-1") else 0
-    dict_m['Main|sum2']  = hand_num( soup.select_one(".bm-fullbet-summ.sys-stat-abs-2").text) if soup.select_one(".bm-fullbet-summ.sys-stat-abs-2") else 0
-    dict_m['Main|koef1'] = hand_num( soup.select_one(".stat-koef.sys-stat-koef-1").text) if soup.select_one(".stat-koef.sys-stat-koef-1") else 1.00
-    dict_m['Main|koef2'] = hand_num( soup.select_one(".stat-koef.sys-stat-koef-2").text) if soup.select_one(".stat-koef.sys-stat-koef-2") else 1.00
-    dict_m['Main|proc1'] = hand_num( soup.select_one(".sys-stat-proc-1").text) if soup.select_one(".sys-stat-proc-1") else 0
-    dict_m['Main|proc2'] = hand_num( soup.select_one(".sys-stat-proc-2").text) if soup.select_one(".sys-stat-proc-2") else 0
-
-    t1 = soup.select_one(".btn-bet-head.t1name").text.strip() if soup.select_one(".btn-bet-head.t1name") else "error"
-    t2 = soup.select_one(".btn-bet-head.t2name").text.strip() if soup.select_one(".btn-bet-head.t2name") else "error"
-    
-    markets = soup.select(".bma-bet")
-
-    for market in markets:
-        [x.extract() for x in market.select("div[class*=bma-title-]")]
-        name_market = market.select_one(".bma-title").text.strip()
-
-        try:
-            map_ = list(market.parent.previous_siblings)[1].text.strip()
-        except IndexError:
-            map_ = list( market.parent.parent.previous_siblings )[1].text.strip()
-
-        map_ = "[{}]".format(map_) if "Карта" in map_ else ""
-        name_market = " ".join([map_, name_market]) if map_ else name_market
-        if "Победа на карте" in name_market:
-            dict_m[name_market + "|sum1"]  = hand_num( market.parent.select_one(".sys-stat-abs-1").text )  if market.parent.select_one(".sys-stat-abs-1") else 0
-            dict_m[name_market + "|sum2"]  = hand_num( market.parent.select_one(".sys-stat-abs-2").text )  if market.parent.select_one(".sys-stat-abs-2") else 0
-            dict_m[name_market + "|proc1"] = hand_num( market.parent.select_one(".sys-stat-proc-1").text ) if market.parent.select_one(".sys-stat-proc-1") else 0
-            dict_m[name_market + "|proc2"] = hand_num( market.parent.select_one(".sys-stat-proc-2").text ) if market.parent.select_one(".sys-stat-proc-2") else 0
-            dict_m[name_market + "|koef1"] = hand_num( market.parent.select_one(".sys-stat-koef-1").text ) if market.parent.select_one(".sys-stat-koef-1")  else 1.00
-            dict_m[name_market + "|koef2"] = hand_num( market.parent.select_one(".sys-stat-koef-2").text ) if market.parent.select_one(".sys-stat-koef-2") else 1.00
-
-        else:
-            dict_m[name_market + "|sum1"] = hand_num(market.select_one(".sys-stat-abs-1").text) if market.select_one(".sys-stat-abs-1") else 0
-            dict_m[name_market + "|sum2"] = hand_num(market.select_one(".sys-stat-abs-2").text) if market.select_one(".sys-stat-abs-2") else 0
-            dict_m[name_market + "|proc1"] = 0
-            dict_m[name_market + "|proc2"] = 0
-            dict_m[name_market + "|koef1"] = 1.00
-            dict_m[name_market + "|koef2"] = 1.00
-        winner = detect( market['class'] )
-        if winner == 0:
-            score_text = market.select_one(".bma-score").text if market.select_one(".bma-score") else "0"
-            data = list( map( lambda x : int(x), re.findall("\d+", score_text) ) )
-            if data:
-                winner = score_text
-            else:
-                winner = 0
-
-        dict_m[ name_market ] = winner
-
-    dict_m["t1name"] = t1
-    dict_m["t2name"] = t2
-    return dict_m
 
 def extract_last_snapshot(*args):
     win_dict = args[0]
@@ -276,7 +205,7 @@ def queue_service():
     for c in count():
         params = q_input.get()
         snapshot_service( params )
-        gc.collect()
+        q_input.task_done()
 
 
 
@@ -284,24 +213,50 @@ def worker(conn):
     try:
         while True:
             payload = conn.recv()
+
+            if isinstance( payload, int ):
+                raise ValueError("Force close process")
+            
             q_input.put( payload )
+
     except EOFError:
-        print("Connected close")
+        log.info("Connected close")
+
 
 def server(address, authkey):
     serv = Listener(address, authkey=authkey)
-    while True:
-        try:
-            client = serv.accept()
-            worker( client )
+    for c in count():
+        # try:
+        client = serv.accept()
 
-        except Exception:
-            traceback.print_exc()
+        worker( client )
+
+        # except Exception:
+        #     traceback.print_exc()
+
+def check_done():
+    log.info('Queue join!')
+    time.sleep(35)
+    q_input.join()
+    log.info('Queue Done')
+    # Send 0 for close process
+    build_srv = Client(NAME, authkey=b"qwerty")
+    build_srv.send(0)
 
 
 def main():
     Thread(target=queue_service, daemon=True).start()
-    server("/tmp/build_obj", authkey=b'qwerty') 
+    Thread(target=check_done, daemon=True).start()
+
+    try:
+        server(NAME, authkey=b'qwerty')
+    except Exception:
+        log.error("Error", exc_info=True)
+    finally:
+        log.info("End process")
+        
+
+
 
 if __name__ == '__main__':
     main()

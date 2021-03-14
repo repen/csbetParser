@@ -1,4 +1,4 @@
-import re, os, requests, zlib
+import re, os, requests, zlib, time
 from Model import TMStatus, TSnapshot, TCSGame
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
@@ -8,6 +8,7 @@ from collections import namedtuple
 from ydisk import upload_object
 from dataclasses import dataclass
 from multiprocessing.connection import Client
+from multiprocessing import Process
 
 log = _log("prebuild")
 
@@ -108,23 +109,6 @@ def get_winner(html):
     dict_m["t2name"] = t2
     return dict_m
 
-def extract_last_snapshot(*args):
-    win_dict = args[0]
-    res = {}
-    for name in win_dict:
-        if not re.search(r"\||t1name|t2name", name):
-            obj = Market(
-                name, win_dict[name + "|sum1"], 
-                win_dict[name + "|sum2"], 
-                win_dict[name], 
-                int( datetime.now().timestamp() ),
-
-            )
-            res[name] = obj
-    return res
-
-
-# Market  = namedtuple( 'Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"] )
 
 class Market(namedtuple('Market', ['name', 'left', 'right', 'winner', 'time_snapshot',  "koefleft", "koefright"])):
 
@@ -164,55 +148,9 @@ def get_fields_snapshot(html, winner, t_snapshot):
             continue
 
         names.append( name_market )
-        # M.append( Market( *param ) )
         M[name_market] = Market( *param )
-        # {"name_market" : Market}
     return M, names
 
-
-class Fixture:
-    def __init__(self,*args, **kwargs):
-        self.id     = args[0]
-        self.m_id   = args[0]
-        self.m_time = args[1]
-        self.team01 = args[2]
-        self.team02 = args[3]
-        self.league = kwargs.setdefault("league", "")
-        self._name_markets = set()
-        self._snapshots = []
-
-    @property
-    def markets(self):
-        return self._snapshots
-
-    @markets.setter
-    def markets(self, elements):
-        self._snapshots.append( elements )
-
-    @markets.getter
-    def markets(self):
-        return self._snapshots
-
-    @property
-    def name_markets(self):
-        return self._name_markets
-
-    @name_markets.setter
-    def name_markets(self, names):
-        for name in names:
-            self._name_markets.add( name )
-
-    @name_markets.getter
-    def name_markets(self,):
-        return self._name_markets
-
-    def _asdict(self):
-        for snapshot in self.__dict__["_snapshots"]:
-
-            for key in snapshot:
-                snapshot[key] = snapshot[key]._asdict()
-
-        return self.__dict__
 
 def create_task(m_id):
     url = REMOTE_API + "/task/{}".format(m_id)
@@ -238,6 +176,10 @@ class IParams:
     ts_snapshots:list
     winner_dict:dict
 
+def handling_process():
+    from objbuild2 import main
+    main()
+
 def object_building():
     log.debug("Start. -- Build object --")
 
@@ -253,6 +195,12 @@ def object_building():
 
     log.debug("Quantity fixtures for handling: %s ( filter time )", str( game_happened ))
 
+
+
+    #Запустить другой процесс
+
+    proc1 = Process(target=handling_process, daemon=True).start()
+    time.sleep(2)
     build_srv = Client("/tmp/build_obj", authkey=b"qwerty")
     
     for game in game_happened:
@@ -269,7 +217,7 @@ def object_building():
             continue
 
         
-        upload_object(zlib.compress(_html.encode("utf8")), "id_" + str(game.m_id) )
+        upload_object( zlib.compress(_html.encode("utf8")), "id_" + str(game.m_id) )
         soup_html = BeautifulSoup(_html, "html.parser")
         winner_dict = get_winner( soup_html )
         log.debug( "winner determine: %s", str(winner_dict)[:100]  )
@@ -301,8 +249,8 @@ def object_building():
         IParams(**dparams)
         build_srv.send( dparams )
         # update
-        TSnapshot.snapshot_del(game.m_id)
-        TMStatus.csgame_processed(game.m_id)
+        #TSnapshot.snapshot_del(game.m_id)
+        #TMStatus.csgame_processed(game.m_id)
     build_srv.close()
     log.debug("============End func============")
 
