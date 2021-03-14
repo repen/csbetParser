@@ -198,10 +198,10 @@ def object_building():
 
 
     #Запустить другой процесс
-
-    proc1 = Process(target=handling_process, daemon=True).start()
-    time.sleep(2)
-    build_srv = Client("/tmp/build_obj", authkey=b"qwerty")
+    if game_happened:
+        proc1 = Process(target=handling_process, daemon=True).start()
+        time.sleep(2)
+        build_srv = Client("/tmp/build_obj", authkey=b"qwerty")
     
     for game in game_happened:
 
