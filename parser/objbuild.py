@@ -249,8 +249,8 @@ def object_building():
         IParams(**dparams)
         build_srv.send( dparams )
         # update
-        #TSnapshot.snapshot_del(game.m_id)
-        #TMStatus.csgame_processed(game.m_id)
+        TSnapshot.snapshot_del(game.m_id)
+        TMStatus.csgame_processed(game.m_id)
     build_srv.close()
     log.debug("============End func============")
 
